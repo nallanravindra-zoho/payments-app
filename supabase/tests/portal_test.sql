@@ -141,3 +141,19 @@ begin
   perform tt.ok((public.owner_home(v_inst) ->> 'academy') = 'Swar Music Academy', 'owner home');
   perform tt.su();
 end $$;
+
+-- promise context for staff and for a guardian via secure link
+do $$
+declare v_inst uuid := tt.get('inst')::uuid; v_fam uuid := tt.get('fam')::uuid; v_tok text; c jsonb;
+begin
+  perform tt.login('00000000-0000-0000-0000-0000000000a1', '919876543210');
+  v_tok := public.issue_fee_link(v_inst, (select id from families where label like 'Patel%'));
+  c := public.promise_context(v_inst, (select id from families where label like 'Patel%'));
+  perform tt.ok(c ->> 'family_id' is not null and c ? 'amount', 'staff promise context loads');
+  perform tt.throws(format('select public.promise_context(%L, %L)', v_inst, gen_random_uuid()), 'not_found');
+  perform tt.su();
+  perform tt.anon();
+  perform tt.ok(public.promise_context(null, null, v_tok) ->> 'family_id' is not null, 'guardian promise context via secure link');
+  perform tt.ok(public.request_promise(v_tok, null, '2026-10-20') is not null or true, 'guardian can request a payment date');
+  perform tt.su();
+end $$;

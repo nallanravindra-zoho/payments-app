@@ -22,7 +22,7 @@ begin
     'my_context','bootstrap_owner','get_settings','save_business_profile','save_gst_settings','save_payment_settings','invite_staff','list_staff','create_batch','batch_options',
     'import_preview','import_commit','import_revert','wizard_context','check_enrolment','invoice_preview','enrol_student','issue_fee_link','revoke_fee_link','send_invitation',
     'calendar_range','list_batches','batch_detail','attendance_target','attendance_save','teachable_students','issue_lesson_credit',
-    'issue_student_invite','activate_student','student_home','student_class','student_attendance','request_makeup','review_makeup','update_student_preferences','create_announcement',
+    'issue_student_invite','invite_preview','activate_student','student_home','student_class','student_attendance','request_makeup','review_makeup','update_student_preferences','create_announcement',
     'family_bill','payment_history','payment_status','receipt_view','request_promise','promise_context',
     'inbox_summary','payment_detail','approve_payment','reject_payment','allocation_context','confirm_allocation','record_offline_payment','create_promise','remind_family','reverse_payment',
     'list_students','owner_student','owner_home','get_target','set_target','report_revenue','report_aging','report_profit','report_reconcile','report_gst','report_retention','report_export']
@@ -31,7 +31,7 @@ begin
   end loop;
 end $$;
 -- the secure-link parent endpoints are the only anonymous surface (token is the credential)
-grant execute on function public.family_bill(text, uuid, uuid), public.payment_history(text, uuid, uuid), public.payment_status(uuid, text, uuid), public.receipt_view(uuid, text), public.request_promise(text, uuid, date) to anon;
+grant execute on function public.family_bill(text, uuid, uuid), public.payment_history(text, uuid, uuid), public.payment_status(uuid, text, uuid), public.receipt_view(uuid, text), public.request_promise(text, uuid, date), public.promise_context(uuid, uuid, text) to anon;
 
 -- edge functions (service role only)
 grant execute on all functions in schema public to service_role;

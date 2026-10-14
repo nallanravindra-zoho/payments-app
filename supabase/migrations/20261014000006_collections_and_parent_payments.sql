@@ -324,18 +324,22 @@ begin
   return v_id;
 end $$;
 
-create or replace function public.promise_context(p_inst uuid, p_family uuid) returns jsonb
+create or replace function public.promise_context(p_inst uuid, p_family uuid, p_token text default null) returns jsonb
 language plpgsql stable security definer set search_path = public, app, pg_temp as $$
-declare sc record;
+declare v_fam uuid; v_inst uuid;
 begin
   if p_inst is not null and auth.uid() is not null and app.is_role(p_inst, array['owner','admin','accountant']) then
-    sc.family_id := p_family; sc.institute_id := p_inst;
-  else select * into sc from app.actor_scope(null, auth.uid(), p_family, null); end if;
-  return jsonb_build_object('family_id', sc.family_id, 'name', coalesce((select string_agg(distinct s.name, ', ') from app.v_invoice v join students s on s.id = v.student_id where v.family_id = sc.family_id and v.balance > 0), (select label from families where id = sc.family_id)),
-    'amount', (select coalesce(sum(balance), 0) from app.v_invoice where family_id = sc.family_id and balance > 0),
-    'days_overdue', (select coalesce(max(app.today() - due_on), 0) from app.v_invoice where family_id = sc.family_id and balance > 0 and due_on < app.today()),
-    'description', (select min((select min(l.description) from invoice_lines l where l.invoice_id = v.id)) from app.v_invoice v where v.family_id = sc.family_id and v.balance > 0),
-    'current', (select jsonb_build_object('date', promise_date, 'pause', pause_reminders) from collection_cases where family_id = sc.family_id and type = 'promise' and state = 'open' order by created_at desc limit 1));
+    if not exists (select 1 from families where id = p_family and institute_id = p_inst) then raise exception 'not_found' using errcode = 'P0001'; end if;
+    v_fam := p_family; v_inst := p_inst;
+  else
+    select s.family_id, s.institute_id into v_fam, v_inst from app.actor_scope(p_token, auth.uid(), p_family, null) s;
+  end if;
+  return jsonb_build_object('family_id', v_fam, 'institute_id', v_inst,
+    'name', coalesce((select string_agg(distinct s.name, ', ') from app.v_invoice v join students s on s.id = v.student_id where v.family_id = v_fam and v.balance > 0), (select label from families where id = v_fam)),
+    'amount', (select coalesce(sum(balance), 0) from app.v_invoice where family_id = v_fam and balance > 0),
+    'days_overdue', (select coalesce(max(app.today() - due_on), 0) from app.v_invoice where family_id = v_fam and balance > 0 and due_on < app.today()),
+    'description', (select min((select min(l.description) from invoice_lines l where l.invoice_id = v.id)) from app.v_invoice v where v.family_id = v_fam and v.balance > 0),
+    'current', (select jsonb_build_object('date', promise_date, 'pause', pause_reminders) from collection_cases where family_id = v_fam and type = 'promise' and state = 'open' order by created_at desc limit 1));
 end $$;
 
 create or replace function app.queue_reminders(p_inst uuid default null, p_manual_family uuid default null) returns jsonb
@@ -410,3 +414,15 @@ begin
                where v.student_id = p_student and p2.state = 'verified' group by p2.id, p2.paid_on order by p2.paid_on desc limit 6) p), '[]'),
     'portal_active', exists (select 1 from student_accounts where student_id = p_student and revoked_at is null));
 end $$;
+
+-- ---------------------------------------------------------------- helpers for edge functions
+create or replace function public.svc_set_proof_path(p_payment uuid, p_path text) returns void language sql security definer set search_path = public, app, pg_temp as $$
+  update payment_proofs set file_path = p_path where payment_id = p_payment and file_path is null
+$$;
+create or replace function public.svc_cancel_payment(p_payment uuid, p_reason text) returns void language sql security definer set search_path = public, app, pg_temp as $$
+  update payments set state = 'cancelled', reason = p_reason where id = p_payment and state in ('initiated','pending_provider','pending_manual_review')
+$$;
+create or replace function public.svc_payment_info(p_payment uuid) returns jsonb language sql stable security definer set search_path = public, app, pg_temp as $$
+  select jsonb_build_object('id', id, 'state', state, 'provider', provider, 'provider_order_id', provider_order_id, 'amount', claimed_amount, 'institute_id', institute_id,
+  'academy', (select name from institutes where id = payments.institute_id)) from payments where id = p_payment
+$$;

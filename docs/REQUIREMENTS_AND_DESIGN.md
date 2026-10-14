@@ -1,6 +1,6 @@
 # ClassPay (working name) — Requirements, Market Research & Design
 
-Status: **DRAFT v0.3 — expanded workflows, 50-screen UI set, and low-cost serverless implementation design**. Sections 1–19 retain the product requirements and historical proposals; sections 20–25 are the current implementation recommendation. A clickable front-end demo exists, but production services are not yet connected.
+Status: **DRAFT v0.5 — 58-screen prototype with student portal, expanded workflows, and low-cost serverless design**. Sections 1–19 retain the product requirements and historical proposals; sections 20–25 are the current implementation recommendation. A clickable front-end demo exists with four role views (owner, parent, teacher, student), but production services are not yet connected.
 
 ---
 
@@ -753,24 +753,146 @@ Only add FastAPI/Python (or another dedicated service) if actual needs justify i
 
 ---
 
-## 26. Lifecycle prototype coverage (NEW — prototype v2)
+## 26. Student Portal & Authentication (v0.4 — NEW)
 
-`prototype-v2/index.html` (zipped as `classpay-lifecycle-prototype.zip`) is a single-file clickable front-end built from §14–§19 and the 32 expanded screens (S01–S32). It runs on one in-memory state shared by Owner, Parent and Teacher views, so each action changes what the other roles see. It is **not** connected to Supabase or a payment provider.
+### 26.1 Product decision
 
-| Lifecycle stage | Screens | Behaviour implemented in the prototype |
+The student is a **first-class, fourth application role**, alongside Owner/Admin, Parent/Guardian and Teacher. The student portal is for their personal learning experience, not academy financial administration. Reuse **the same authentication system, database, and PWA**; no separate Python server or student app is needed.
+
+**MVP:** invitation/activation, role-specific home, next class, class timetable/detail, own attendance, notices, class reminders, limited profile, and guardian-linked permission model. **MVP adult-only option:** personal dues, self-payment and receipts reusing checkout. **V2:** lesson resources/homework, teacher feedback, self-service reschedule/make-up approvals, richer progress metrics.
+
+### 26.2 Invite, sign-in and account linking
+
+1. An authorized academy admin creates a student record and enrollment, then associates one or more authorized guardians if the learner is a minor.
+2. Admin issues a **single-use, expiring** invitation to an approved contact channel. An academy-provisioned student account must be linked to the correct student and institute membership server-side.
+3. Student activates using the invitation and a supported authentication method (initial cost-first plan: email magic link / email-password when available; SMS OTP only when the cost is justified). The demonstration uses sample code `CP-STU-102` and demo OTP `1234` **only in the mock prototype**, never in production.
+4. Authentication establishes a Supabase user session, then the app reads the **authorized institute memberships and role(s)** from database records and routes to the appropriate dashboard. Role selection alone must not grant access.
+5. One authenticated user can have several memberships or roles across academies; role/institute switching must be explicit. Never assume a globally unique role.
+6. Minor access requires age-appropriate consent and guardian controls according to applicable privacy law. Do not require every child to own a phone or email. If a student cannot independently activate, the guardian can continue to view that learner's schedule from the guardian portal.
+7. Reissue and revoke invites, deactivate/recover access, and maintain an audit trail. Invitations must not grant visibility into other students' records.
+
+### 26.3 Permission matrix
+
+| Capability | Minor student | Adult student | Guardian |
+|---|---|---|---|
+| Own timetable and class details | Yes | Yes | Linked children's timetables |
+| Own attendance | Yes | Yes | Linked children's attendance (academy policy) |
+| Announcements and class reminders | Yes (consent/policy) | Yes | Yes |
+| Make-up class request | Request only | Request only | Request on child's behalf |
+| Edit contact preferences | Limited | Yes | Own preferences |
+| Edit legal identity, age, enrollment, guardian links | No | Admin-assisted | Admin-assisted |
+| View billing, balances, receipts | No by default | Own only | Linked family accounts |
+| Pay outstanding fees | No by default | Own only | Linked family accounts |
+| View classmate contact/financial information | Never | Never | Never |
+| Manage attendance or academy reports | Never | Never | Never |
+
+**Policy:** A minor must not inherit a guardian's billing permissions. If a future academy setting enables teen fee visibility, it must be intentionally scoped and legally/privacy reviewed; never default to enabled.
+
+### 26.4 Seven added clickable screens (51–57)
+
+| ID | Screen | Primary action / behavior |
 |---|---|---|
-| Owner onboarding | S01–S04 | OTP with wrong-code error and 3-attempt lock; multi-institute role pick; GST registered/inclusive/frequency settings with GSTIN validation |
-| Import | S05 | CSV preview, duplicate and invalid-row handling (merge/skip/create), imported opening balances marked `imported`, undo |
-| Enrol and bill | S06–S09 | Existing-family linking by phone, capacity and conflict checks, sibling discount, per-student or split fee, immutable invoice with tax snapshot |
-| Invite | S10 | Secure link reveal, revoke, re-issue; revoked link shows a dead-link page |
-| Parent payment | S18–S24 | Family bill with invoice selection; UPI/card via gateway; direct-UPI proof with duplicate-UTR flag; locks invoices that already have a payment in review |
-| Payment truth | S21 | Browser redirect never marks paid; only a signed webhook does; replayed or late events are ignored; failure and retry state |
-| Owner collections | S11–S16 | Inbox with proofs, processing, overdue, promises, holds; bank-check gate before approval; mismatch handling; allocation with oldest-first / selected-first / proportional; partial allocation leaves family credit; cash/bank entry; promise to pay |
-| Receipts | S17 | Immutable numbered receipts; reversal creates a linked correction and reopens invoices; credit notes on invoices |
-| Automation | Billing & reminders | Time travel; billing cycle is idempotent per enrolment and period; reminder cadence with suppression for promises, pending proofs and holds; missed promises return to the queue |
-| Classes | S31–S32 | Teacher attendance with correction; cancel a class and issue make-up credits once per student; parent redeems a credit |
-| Reports | S25–S30 | Revenue vs target, aging drill-down, batch profitability (cash/accrual, editable costs), reconciliation with exceptions, GST by period with threshold tracker, retention; CSV exports |
+| 51 `studentactivate` | Student invitation and activation | Validate a demo invite, choose age group and display name, activate portal |
+| 52 `studenthome` | Student home dashboard | Next class, attendance, announcements, make-up credits; adult billing shortcut only |
+| 53 `studentschedule` | My timetable | Upcoming classes and schedule changes, open class details |
+| 54 `studentclass` | Class detail | Studio, teacher, session, progress, submit demo make-up request |
+| 55 `studentattendance` | My attendance | Percent, attended/total, session history |
+| 56 `studentprofile` | My profile and permissions | Guardian link for minor; adult billing; notification preference |
+| 57 `studentfees` | Adult student billing | Own fee, status and reusable payment checkout; minor access blocked |
 
-**Where the prototype differs from the static screens (intentionally, to keep numbers consistent):** Aarav's first invoice is ₹1,800 after the ₹200 sibling discount, so the family bill totals ₹4,300 rather than ₹4,500; screen values are otherwise reproduced where the data allows (for example the Q2 GST figures ₹3,05,085 / ₹54,915 on ₹3,60,000).
+These seven screens extend the **50 existing screens to 57 total**. The prototype navigation exposes **Owner / Parent / Teacher / Student** and supports scenario switching. All demo names, records, confirmations and payment actions remain simulated.
 
-**Defaults chosen where §19/§25 leave a decision open (change after sign-off):** allocation defaults to oldest-due-first; screenshots never confirm settlement (owner must tick a bank-statement check); only the owner records cash; gateway fee pass-through is off by default.
+### 26.5 Student-specific data model additions
+
+Proposed entities/columns for implementation (migration design, not yet deployed):
+
+```sql
+-- Existing User, Student and Enrollment entities remain authoritative.
+AcademyMembership(id, academy_id, auth_user_id, role, status, created_at)
+StudentAccountLink(id, academy_id, student_id, auth_user_id, activated_at, revoked_at)
+GuardianStudentPermission(id, academy_id, guardian_user_id, student_id,
+                          can_view_attendance, can_manage_billing, consent_record_id)
+StudentInvite(id, academy_id, student_id, invited_contact_hash, token_hash,
+              expires_at, used_at, revoked_at, issued_by)
+StudentPreferences(id, academy_id, student_id, class_reminders, language)
+MakeupRequest(id, academy_id, student_id, enrollment_id, session_id,
+              reason, status, requested_at, reviewed_by, reviewed_at)
+Announcement(id, academy_id, batch_id, visibility, content, published_at)
+```
+
+Use actual PostgreSQL DDL, constraints, tenancy keys and indexes during development. Student age/birth date should only be collected when needed, stored minimally and protected.
+
+### 26.6 Security and serverless implementation rules
+
+- Configure Supabase Auth for approved channels; all student identifiers must be resolved from authenticated, authorized membership, not trusted client IDs or a local role flag.
+- Enable PostgreSQL RLS on all per-academy and per-student data. Students read only their own linked student record, enrollments, sessions, attendance and approved announcements.
+- Prevent student reads of `Payment`, `Invoice`, `Receipt`, `PaymentAllocation` unless the identity is an **adult student with explicitly scoped self-billing permission**. Guardian access uses its own link-specific policy.
+- Student make-up requests should use a server-validated RPC or Edge Function and a review status; submitting a request does not automatically change attendance or create monetary credit.
+- Sign invitation tokens, hash stored tokens, expire them and verify them server-side. Demo activation codes must not be shipped as real credentials.
+- Ensure guardian consent/minor notifications respect applicable DPDP requirements and future implementing rules, validated with local counsel.
+- The `studentfees` prototype reuses the payment method screen but **production checkout** must obtain its invoice IDs, amounts and payee from server-authorized records only.
+
+### 26.7 Acceptance tests before production
+
+1. Minor account activation routes to student dashboard; direct navigation to fees yields an access-denied/guardian-managed response.
+2. Adult student can view and pay **only their own** invoices, including after changing browsers/devices.
+3. A student cannot read another student's timetable, attendance, guardian data, UTR, or receipts by modifying network requests or URLs.
+4. Revoked student invitation cannot activate; a used token cannot be replayed; guardian unlink immediately removes guardian-specific permissions.
+5. Multiple-academy users see only the selected authorized academy records; account deactivation blocks access without deleting historic invoices.
+6. Student attendance comes from teacher-confirmed server records, not editable client-only counts.
+7. Reschedule notices respect notification preferences; make-up requests require staff review; minor privacy/consent scenario is tested.
+
+### 26.8 Scope and cost impact
+
+The PWA + Supabase recommendation in sections 20–25 **does not change**. The student portal adds frontend routes, RLS policies and a few relational tables, not another always-on service. More authenticated users and notifications can increase platform and messaging usage; measure limits before production. The clickable prototype is for UX validation and **does not provide secure real authentication, data persistence or real payments**.
+
+
+---
+
+## 27. Shared Calendar: Day / Week / Month for All Roles (v0.5 — IMPLEMENTED IN PROTOTYPE)
+
+### 27.1 Universal requirement
+
+Every ClassPay schedule is available in **Day**, **Week**, and **Month** views for **Owner/Admin**, **Teacher**, **Parent/Guardian**, and **Student**. The selected view and date should persist while navigating within the session; a production client may store them as user preferences. The display defaults to the user's current local date in production (the browser demo uses 14 October 2026 as a fixed demonstration reference).
+
+- **Day:** Chronological agenda with time, end time, session/batch, venue or meeting link, teacher, and status. Empty days show a clear empty state.
+- **Week:** Monday-to-Sunday calendar/week strip, session counts per day, and a chronological agenda grouped by day. Selecting a day focuses it without losing the selected week.
+- **Month:** Monday-first calendar grid with event indicators and an agenda of sessions for the selected date. Days outside the month remain navigable.
+- All three modes support **previous**, **next**, and **today** navigation; tapping a session opens an authorized detail/action screen.
+- Explicit **Scheduled**, **Cancelled**, and **Rescheduled** badges appear with accessible text, not color alone. The final session timestamp and notification history must survive edits.
+
+### 27.2 Role-specific visibility
+
+| Role | Calendar scope | Useful controls | Session actions |
+|---|---|---|---|
+| Owner/Admin | All institute sessions | Filter by batch, teacher, room, location, and status | Create/reschedule/cancel, detect overlaps, open batch, notify affected users |
+| Teacher | Assigned teaching sessions only | Day/week/month, assigned batch, location | View roster, mark attendance, request reschedule (policy dependent) |
+| Parent/Guardian | Sessions for linked children only | Child switcher (one or all), day/week/month | View class details and announcements, request make-up if policy allows |
+| Student | Sessions belonging to current active enrollments only | Day/week/month, enrolled class | View session details, attendance, and eligible make-up requests |
+
+A linked **minor** student can see session information but not another student's identity or private financial details. Parent linkage and teacher assignment are enforced by PostgreSQL Row Level Security (RLS), **not** by hiding calendar UI elements. Where a user belongs to multiple academies, academy context must be selected and checked server-side.
+
+### 27.3 Session data and backend implementation
+
+The existing `Session` model must include or reference: `academy_id`, `batch_id`, `teacher_id`, `starts_at`, `ends_at` (timezone-aware), `timezone`, `room_id`/online link, `status`, `original_session_id` or reschedule history, and `updated_at`. Enrollment effective dates and cancellation rules govern visibility. Store instants consistently (e.g., UTC) while displaying the academy-local timezone; handle daylight-saving differences where applicable.
+
+- Generate recurring sessions from schedules with an explicit recurrence rule and date range. Support exceptions for holidays, cancellations, replacements, teacher changes, and one-off sessions.
+- For large calendars, query a bounded date range based on the selected view instead of loading every session. Paginate or use an interval query for busy academies.
+- Detect teacher and room collisions, including single occurrences of recurring classes.
+- A reschedule updates affected viewers and queues notifications, while retaining original time and audit history.
+- Preserve user-permitted offline cached views; label stale data and refresh after reconnection.
+- All calendar links and API queries must enforce role-scoped reads (including teacher/student/guardian cross-academy isolation).
+
+### 27.4 Prototype implementation and navigation
+
+The clickable HTML prototype now has **four usable three-mode calendars**: Owner (`Calendar`), Teacher (`Teacher schedule`), Parent (`Family schedule`), and Student (`My timetable`). The parent calendar is a newly added screen, bringing the inventory to **58 named screens**. Owner has a batch filter, and Parent can select all linked children or a single child. Each calendar supports next/previous navigation, selecting dates, status labels, and role-relevant session actions. Sample sessions in the demo are fictional and held entirely in the browser; the Supabase read/write layer is still a production implementation task.
+
+### 27.5 Acceptance tests
+
+1. Every role can switch Day → Week → Month → Day without errors or losing date context.
+2. Each view shows only sessions allowed by the signed-in user's academy, assignment, guardian links, or enrollment.
+3. Parent switcher correctly combines or separates linked children's schedules.
+4. Weekly and monthly grids navigate across months and years; empty periods have an empty state.
+5. Changes to session times or cancellations display consistently across affected roles and send notifications according to settings.
+6. The calendar remains usable with screen readers, larger font settings, and keyboard navigation.
+7. RLS tests deny access to sessions outside the user's permitted academy and roster.

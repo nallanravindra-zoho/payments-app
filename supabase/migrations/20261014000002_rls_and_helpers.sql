@@ -94,3 +94,11 @@ begin
     on conflict (id) do nothing;
   end if;
 end $$;
+
+-- Finance staff may read proofs belonging to their institute (objects are stored as <institute_id>/<payment_id>/<file>).
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    execute $p$create policy proofs_staff_read on storage.objects for select to authenticated using (bucket_id = 'proofs' and app.is_finance(((storage.foldername(name))[1])::uuid))$p$;
+  end if;
+end $$;

@@ -8,6 +8,6 @@ export PGUSER=${PGUSER:-postgres}
 psql -v ON_ERROR_STOP=1 -q -d postgres -c "drop database if exists $DB" -c "create database $DB"
 psql -v ON_ERROR_STOP=1 -q -d "$DB" -f tests/shim.sql
 for f in migrations/*.sql; do echo "== $f"; psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$f"; done
-if [ "${SEED:-0}" = "1" ]; then psql -v ON_ERROR_STOP=1 -q -d "$DB" -f seed.sql; fi
+if [ "${SEED:-0}" = "1" ]; then psql -v ON_ERROR_STOP=1 -q -d "$DB" -f seed.sql; echo "SEEDED (tests skipped: they assume an empty database)"; exit 0; fi
 for t in tests/*_test.sql; do [ -e "$t" ] || continue; echo "== test $t"; psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$t"; done
 echo "ALL SQL OK"

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/e2e/.keys.json
+.env.local
+.env*.local
+*.log
+.DS_Store

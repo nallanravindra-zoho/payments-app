@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@supabase/supabase-js": [
+        "./node_modules/@supabase/supabase-js"
+      ]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "e2e",
+    "../supabase/functions"
+  ],
+  "exclude": [
+    "../supabase/functions/*/index.ts"
+  ]
+}

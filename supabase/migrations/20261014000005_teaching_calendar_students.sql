@@ -114,14 +114,15 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- attendance (teacher / admin)
-create or replace function public.attendance_target(p_inst uuid, p_session uuid default null) returns jsonb
+create or replace function public.attendance_target(p_inst uuid, p_session uuid default null, p_batch uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = public, app, pg_temp as $$
 declare v_id uuid := p_session; r record;
 begin
   if v_id is null then
     select s.id into v_id from class_sessions s join batches b on b.id = s.batch_id
-     where s.institute_id = p_inst and s.status in ('scheduled','done') and (s.starts_at at time zone 'Asia/Kolkata')::date = app.today() and app.can_teach(s.id)
-     order by abs(extract(epoch from (s.starts_at - now()))) limit 1;
+     where s.institute_id = p_inst and s.status in ('scheduled','done') and (p_batch is null or s.batch_id = p_batch) and app.can_teach(s.id)
+       and (s.starts_at at time zone 'Asia/Kolkata')::date >= app.today() - case when p_batch is null then 0 else 7 end
+     order by ((s.starts_at at time zone 'Asia/Kolkata')::date <> app.today()), abs(extract(epoch from (s.starts_at - now()))) limit 1;
   end if;
   if v_id is null or not app.can_teach(v_id) then return null; end if;
   select s.id, b.name, s.starts_at, s.status, coalesce(s.room, b.room) as room into r from class_sessions s join batches b on b.id = s.batch_id where s.id = v_id;
@@ -333,4 +334,17 @@ begin
   perform app.require(p_inst);
   insert into announcements (institute_id, batch_id, title, body, created_by) values (p_inst, p_batch, p_title, p_body, auth.uid()) returning id into v_id;
   return v_id;
+end $$;
+
+-- Shown on the activation screen once a code is typed (authenticated users only; returns nothing for bad codes).
+create or replace function public.invite_preview(p_code text) returns jsonb
+language plpgsql stable security definer set search_path = public, app, pg_temp as $$
+declare inv student_invites; st students;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated' using errcode = '28000'; end if;
+  select * into inv from student_invites where code_hash = encode(sha256(convert_to(upper(trim(coalesce(p_code, ''))), 'UTF8')), 'hex') and used_at is null and revoked_at is null and expires_at > now();
+  if not found then return null; end if;
+  select * into st from students where id = inv.student_id;
+  return jsonb_build_object('academy', (select name from institutes where id = inv.institute_id), 'student', split_part(st.name, ' ', 1), 'age_group', st.age_group,
+    'batch', (select b.name from enrollments e join batches b on b.id = e.batch_id where e.student_id = st.id and e.status = 'active' order by e.start_on limit 1));
 end $$;
