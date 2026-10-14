@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Shell } from './Shell';
 import { Loading } from './components/ui';
 import { getToken, homeFor, useApp, type Role } from './lib/session';
-import { Login, Otp, RoleScreen, StudentActivate } from './screens/auth';
+import { Login, ResetPassword, RoleScreen, StudentActivate } from './screens/auth';
 import { AddStudent, Assign, FeePlan, Import, InvoicePreview, Invite, Profile } from './screens/onboarding';
 import { Allocate, BatchDetail, Batches, Cash, Exports, Home, Inbox, Issue, NewBatch, PromiseToPay, Receipt, Settings, StudentProfile, Target, Verify } from './screens/owner';
 import { CalendarScreen, ParentSchedule, StudentSchedule, TeacherCalendar } from './screens/schedule';
@@ -48,7 +48,8 @@ export function App() {
           {/* onboarding & identity */}
           <Route path="/login" element={Pub(<Login />)} />
           <Route path="/signup" element={<Navigate to="/login" replace />} />
-          <Route path="/otp" element={Pub(<Otp />)} />
+          <Route path="/otp" element={<Navigate to="/login" replace />} />
+          <Route path="/reset" element={<ResetPassword />} />
           <Route path="/role" element={<RoleScreen />} />
           <Route path="/studentactivate" element={<StudentActivate />} />
           <Route path="/profile" element={<Gate roles={['admin']} noInst><Profile /></Gate>} />

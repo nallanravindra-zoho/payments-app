@@ -15,7 +15,7 @@ PWA (React) ──supabase-js──► Auth (phone OTP) · PostgREST RPC · Stor
   Invoices are immutable (trigger); allocations are append-only and cannot exceed verified money or an invoice balance (trigger); receipts are never
   deleted (reversal creates a linked correction); recurring billing is idempotent per enrolment + period.
 * **Roles come from the database**, never from a client flag: `memberships` (owner/admin/accountant/teacher), `guardians` (parent), `student_accounts` (student).
-  Invited staff/guardians claim their row by verified phone number at first sign-in (`my_context`). Minors cannot reach billing; adult students only their own invoices.
+  Invited staff/guardians claim their row by **verified email** at first sign-in (`my_context`; the address must be confirmed in Supabase Auth). Minors cannot reach billing; adult students only their own invoices.
 * **Money truth.** A browser redirect never marks anything paid. Gateway success arrives as a **signed webhook** → `svc_gateway_event` (idempotent by event id,
   amount-checked, order-safe). A direct-UPI screenshot is *evidence*: the owner must confirm the bank credit before `approve_payment` succeeds; duplicate UTRs are flagged.
 * **No-install parents** use a high-entropy, hashed, expiring, revocable fee link (`/pay/<token>`); the token is the only credential for the anonymous RPCs.
@@ -25,9 +25,9 @@ PWA (React) ──supabase-js──► Auth (phone OTP) · PostgREST RPC · Stor
 
 The UI is a faithful port (same copy, layout, tokens, navigation). Changes are limited to what real data/security required:
 
-1. **Demo-only text** ("Demo code: 1234", "Simulate…", "Demo link verified") appears only with `VITE_DEMO_MODE=true` / mock provider. Real OTP is 6 digits.
+1. **Sign-in is email + password** (the prototype showed phone OTP). Demo-only text ("Simulate…") appears only with `VITE_DEMO_MODE=true` / mock provider. Phone/SMS login can be added later.
 2. **Role screen** is validated server-side: choosing a role you have no membership for explains why (or starts academy creation for a new owner).
-3. **Added fields/controls that real operation needs:** owner name on first academy setup; teacher mobile and room on *Create batch*; invoice checkboxes on *Family bill*;
+3. **Added fields/controls that real operation needs:** owner name on first academy setup; teacher email and room on *Create batch*; guardian email on *Add a student*; invoice checkboxes on *Family bill*;
    a bank-credit confirmation checkbox on *Verify payment*; duplicate-row decision + preview on *Import*; payment settings and tax settings cards; student list; a
    *Copy parent fee link* / *Invite student to portal* action on the student profile; sign-out and role switching.
 4. **Screens that showed another role's screen** (e.g. owner rejecting a proof landing on the parent "Payment not confirmed" screen) return to the owner's inbox instead.
@@ -43,7 +43,7 @@ The UI is a faithful port (same copy, layout, tokens, navigation). Changes are l
 
 ## Production checklist
 
-1. Supabase project (India region). Enable **Phone auth** with an SMS provider; remove `[auth.sms.test_otp]` entries.
+1. Supabase project (India region). Auth → Providers → **Email** enabled with **Confirm email ON**; set Site URL and add redirect URLs `<site>/login` and `<site>/reset`; configure custom SMTP before launch (the built-in mailer is rate-limited).
 2. Secrets: `PAYMENT_PROVIDER=razorpay`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`; deploy functions; set the provider webhook to `/functions/v1/payment-webhook` (events `payment.captured`, `order.paid`, `payment.failed`).
 3. Web env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PAYMENT_PROVIDER=razorpay`, `VITE_RAZORPAY_KEY_ID`; `VITE_DEMO_MODE` unset.
 4. Run migrations (not `seed.sql`). Confirm `pg_cron` created job `classpay-daily` (01:00 IST: billing, sessions, promises, reminders).

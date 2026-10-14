@@ -34,16 +34,17 @@ function verify(t: string): any | null {
 const ANON = sign({ role: 'anon', iss: 'harness' }), SERVICE = sign({ role: 'service_role', iss: 'harness' });
 fs.writeFileSync(new URL('../.keys.json', import.meta.url), JSON.stringify({ url: `http://127.0.0.1:${PORT}`, anon: ANON, service: SERVICE }, null, 2));
 
-const sessions = new Map<string, { userId: string; phone: string }>();
+const sessions = new Map<string, { userId: string; phone: string; email: string }>();
+const passwords = new Map<string, string>();   // email -> password (in-memory; harness only)
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': '*' };
 const send = (res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => { res.writeHead(status, { ...CORS, 'Content-Type': 'application/json', ...headers }); res.end(body === undefined ? '' : JSON.stringify(body)); };
 const readBody = (req: http.IncomingMessage) => new Promise<Buffer>((ok) => { const c: Buffer[] = []; req.on('data', (d) => c.push(d)); req.on('end', () => ok(Buffer.concat(c))); });
 
-function session(userId: string, phone: string) {
+function session(userId: string, phone: string, email = '') {
   const now = Math.floor(Date.now() / 1000);
-  const access = sign({ aud: 'authenticated', role: 'authenticated', sub: userId, phone, iat: now, exp: now + 3600, app_metadata: { provider: 'phone' }, user_metadata: {} });
-  const refresh = crypto.randomUUID(); sessions.set(refresh, { userId, phone });
-  return { access_token: access, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: refresh, user: { id: userId, aud: 'authenticated', role: 'authenticated', phone, app_metadata: { provider: 'phone' }, user_metadata: {}, created_at: new Date().toISOString() } };
+  const access = sign({ aud: 'authenticated', role: 'authenticated', sub: userId, phone, email, iat: now, exp: now + 3600, app_metadata: { provider: 'phone' }, user_metadata: {} });
+  const refresh = crypto.randomUUID(); sessions.set(refresh, { userId, phone, email });
+  return { access_token: access, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: refresh, user: { id: userId, aud: 'authenticated', role: 'authenticated', phone, email, app_metadata: { provider: 'phone' }, user_metadata: {}, created_at: new Date().toISOString() } };
 }
 
 const sigCache = new Map<string, { names: string[]; types: string[] }>();
@@ -96,11 +97,25 @@ const server = http.createServer(async (req, res) => {
       const r = await pool.query(`insert into auth.users (phone) values ($1) on conflict (phone) do update set phone = excluded.phone returning id`, [phone]);
       return send(res, 200, session(r.rows[0].id, phone));
     }
+    if (url.pathname === '/auth/v1/signup' && req.method === 'POST') {
+      const b = JSON.parse(body.toString()); const email = String(b.email ?? '').trim().toLowerCase();
+      if (!email || String(b.password ?? '').length < 8) return send(res, 422, { code: 422, error_code: 'weak_password', msg: 'Password should be at least 8 characters.' });
+      if (passwords.has(email)) return send(res, 422, { code: 422, error_code: 'user_already_exists', msg: 'User already registered' });
+      const r = await pool.query(`insert into auth.users (email, email_confirmed_at) values ($1, now()) returning id`, [email]);   // harness auto-confirms
+      passwords.set(email, b.password); return send(res, 200, session(r.rows[0].id, '', email));
+    }
+    if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password' && req.method === 'POST') {
+      const b = JSON.parse(body.toString()); const email = String(b.email ?? '').trim().toLowerCase();
+      if (passwords.get(email) !== b.password) return send(res, 400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
+      const r = await pool.query(`select id from auth.users where email = $1`, [email]); return send(res, 200, session(r.rows[0].id, '', email));
+    }
+    if (url.pathname === '/auth/v1/recover' && req.method === 'POST') return send(res, 200, {});
+    if (url.pathname === '/auth/v1/user' && req.method === 'PUT' && claims.sub) { const b = JSON.parse(body.toString()); if (b.password) passwords.set(String(claims.email), b.password); return send(res, 200, { id: claims.sub, email: claims.email }); }
     if (url.pathname === '/auth/v1/token' && req.method === 'POST') {
       const b = JSON.parse(body.toString()); const s = sessions.get(b.refresh_token);
-      return s ? send(res, 200, session(s.userId, s.phone)) : send(res, 400, { error: 'invalid_grant', error_description: 'Invalid Refresh Token' });
+      return s ? send(res, 200, session(s.userId, s.phone, s.email)) : send(res, 400, { error: 'invalid_grant', error_description: 'Invalid Refresh Token' });
     }
-    if (url.pathname === '/auth/v1/user') { return claims.sub ? send(res, 200, { id: claims.sub, aud: 'authenticated', role: 'authenticated', phone: claims.phone, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }) : send(res, 401, { msg: 'invalid JWT' }); }
+    if (url.pathname === '/auth/v1/user' && req.method === 'GET') { return claims.sub ? send(res, 200, { id: claims.sub, aud: 'authenticated', role: 'authenticated', phone: claims.phone, email: claims.email, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }) : send(res, 401, { msg: 'invalid JWT' }); }
     if (url.pathname === '/auth/v1/logout') { return send(res, 204, undefined); }
 
     const m = url.pathname.match(/^\/rest\/v1\/rpc\/([a-z_0-9]+)$/);

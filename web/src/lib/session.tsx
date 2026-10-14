@@ -7,7 +7,7 @@ export type Role = 'admin' | 'parent' | 'teacher' | 'student';
 export interface Membership { institute_id: string; institute_name: string; role: 'owner' | 'admin' | 'teacher' | 'accountant'; display_name: string | null }
 export interface FamilyLink { institute_id: string; institute_name: string; family_id: string; family_label: string; guardian_name: string }
 export interface StudentLink { institute_id: string; institute_name: string; student_id: string; display_name: string; age_group: 'minor' | 'adult'; family_id: string }
-export interface AppContext { user_id: string; phone: string; memberships: Membership[]; families: FamilyLink[]; students: StudentLink[] }
+export interface AppContext { user_id: string; phone: string | null; email: string | null; memberships: Membership[]; families: FamilyLink[]; students: StudentLink[] }
 
 interface Selection { role: Role | null; instId: string | null; familyId: string | null; studentId: string | null }
 const KEY = 'cp.selection';
@@ -32,7 +32,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => { setSession(data.session); if (data.session) await refresh(); setReady(true); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); if (!s) setCtx(null); });
+    const { data: sub } = supabase.auth.onAuthStateChange((e, s) => { setSession(s); if (!s) setCtx(null); else if (e === 'SIGNED_IN') setTimeout(() => { refresh(); }, 0); });
     return () => sub.subscription.unsubscribe();
   }, [refresh]);
 

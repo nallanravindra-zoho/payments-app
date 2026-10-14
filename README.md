@@ -20,8 +20,8 @@ cd web && cp .env.example .env.local      # fill VITE_SUPABASE_ANON_KEY from `su
 npm install && npm run dev
 ```
 
-Demo sign-ins (test OTP `123456`, configured in `supabase/config.toml`): owner **9876543210**, teacher Rahul **9000000002**, parent Neha Sharma **9000000003**.
-Student portal invitation codes: `CP-STU-DEMO0001` (Aarav, under 18) and `CP-STU-DEMO0002` (Ishaan, adult). Open the app, enter the phone, choose a role.
+Sign-in is **email + password**. After `seed.sql`, create accounts with these emails to claim the demo roles (confirm the email, or turn confirmations off locally): owner **anita@swar.demo**, teacher Rahul **rahul@swar.demo**, parent Neha Sharma **neha@swar.demo**.
+Student portal invitation codes: `CP-STU-DEMO0001` (Aarav, under 18) and `CP-STU-DEMO0002` (Ishaan, adult). Open the app, create the account, choose a role.
 
 ## Tests
 

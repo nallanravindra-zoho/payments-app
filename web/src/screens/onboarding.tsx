@@ -155,6 +155,7 @@ export function AddStudent() {
       <Field label="Student name" id="studentname" value={w.studentName} onChange={(v) => set({ studentName: v })} placeholder="e.g. Aarav Sharma" />
       <Field label="Parent / guardian" id="parentname" value={w.parentName} onChange={(v) => set({ parentName: v })} placeholder="e.g. Neha Sharma" />
       <Field label="Guardian mobile" id="parentphone" type="tel" value={w.parentPhone} onChange={(v) => set({ parentPhone: v })} />
+      <Field label="Guardian email (lets them sign in to the parent app)" id="parentemail" type="email" value={w.parentEmail} onChange={(v) => set({ parentEmail: v })} placeholder="parent@example.com" />
       <Select label="Age group" id="age" value={w.ageGroup === 'adult' ? '18 or older' : 'Under 18'} onChange={(v) => set({ ageGroup: v.startsWith('18') ? 'adult' : 'minor' })} options={['Under 18', '18 or older']} />
       {family ? <Notice kind="info">Existing family found: {family.family_label}. {w.studentName || 'This student'} will share their bill{family.sibling_discount ? ` and may get the ${fmt(family.sibling_discount)} sibling discount` : ''}.</Notice> : null}
       <Btn cls="block" onClick={save}>Save student</Btn>
@@ -266,7 +267,7 @@ export function InvoicePreview() {
       const r = await rpc<any>('enrol_student', {
         p_inst: sel.instId, p_student_name: w.studentName.trim(), p_age_group: w.ageGroup, p_guardian_name: w.parentName.trim(), p_guardian_phone: w.parentPhone, p_batch: w.batchId,
         p_start_on: w.startOn || todayISO(), p_custom_slot: [w.days, w.time].filter(Boolean).join(' ') || null, p_fee_model: MODEL[w.billing], p_frequency: FREQ[w.frequency],
-        p_base_fee: Number(w.fee), p_discount: Number(w.discount || 0), p_discount_label: Number(w.discount || 0) ? 'Sibling' : null, p_first_due: due
+        p_base_fee: Number(w.fee), p_discount: Number(w.discount || 0), p_discount_label: Number(w.discount || 0) ? 'Sibling' : null, p_first_due: due, p_guardian_email: w.parentEmail.trim() || null
       });
       set({ created: r });
       go('invite');

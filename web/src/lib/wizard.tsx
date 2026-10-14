@@ -1,13 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
 export interface Wizard {
-  studentName: string; parentName: string; parentPhone: string; ageGroup: 'minor' | 'adult';
+  studentName: string; parentName: string; parentPhone: string; parentEmail: string; ageGroup: 'minor' | 'adult';
   batchId: string; days: string; time: string; startOn: string;
   billing: string; fee: string; frequency: string; dueDay: string; discount: string;
   created: null | { student_id: string; family_id: string; invoice_id: string; invoice_number: string; token: string };
 }
 export const emptyWizard = (): Wizard => ({
-  studentName: '', parentName: '', parentPhone: '', ageGroup: 'minor', batchId: '', days: '', time: '', startOn: '',
+  studentName: '', parentName: '', parentPhone: '', parentEmail: '', ageGroup: 'minor', batchId: '', days: '', time: '', startOn: '',
   billing: 'Per student', fee: '', frequency: 'Monthly', dueDay: '5', discount: '', created: null
 });
 const KEY = 'cp.wizard';

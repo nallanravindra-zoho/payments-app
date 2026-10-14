@@ -84,7 +84,7 @@ export function NewBatch() {
     if (!(Number(f.cap) > 0)) { toast('Capacity must be at least 1'); return; }
     setBusy(true);
     try {
-      await rpc('create_batch', { p_inst: inst, p_name: f.name, p_teacher_name: f.teacher, p_teacher_phone: f.phone || null, p_days: DAY_OPTS[f.day], p_start: f.time, p_minutes: 60, p_capacity: Number(f.cap), p_room: f.room || null });
+      await rpc('create_batch', { p_inst: inst, p_name: f.name, p_teacher_name: f.teacher, p_teacher_email: f.phone.trim() || null, p_days: DAY_OPTS[f.day], p_start: f.time, p_minutes: 60, p_capacity: Number(f.cap), p_room: f.room || null });
       toast('Batch created'); go('batches');
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
   }
@@ -93,7 +93,7 @@ export function NewBatch() {
       <Headline>Create a batch</Headline>
       <Field label="Batch name" id="newbatchname" value={f.name} onChange={set('name')} placeholder="Piano Beginners" />
       <Field label="Teacher name" id="newteacher" value={f.teacher} onChange={set('teacher')} placeholder="Rahul" />
-      <Field label="Teacher mobile (optional, lets them sign in)" id="newteacherphone" type="tel" value={f.phone} onChange={set('phone')} />
+      <Field label="Teacher email (optional, lets them sign in)" id="newteacheremail" type="email" value={f.phone} onChange={set('phone')} placeholder="teacher@example.com" />
       <Select label="Day" id="newday" value={f.day} onChange={set('day')} options={Object.keys(DAY_OPTS)} />
       <Field label="Start time" id="newtime" type="time" value={f.time} onChange={set('time')} />
       <Field label="Room (optional)" id="newroom" value={f.room} onChange={set('room')} placeholder="Studio 1" />

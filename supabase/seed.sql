@@ -1,16 +1,17 @@
 -- Demo data for local development and the e2e harness (NOT for production).
 -- Mirrors the approved prototype: Swar Music Academy, owner Anita, teacher Rahul, the Sharma family, proofs awaiting review, overdue families.
 -- Nobody is pre-linked to an auth user: the owner, teachers and guardians are claimed by phone number at first sign-in (test OTP numbers in config.toml).
---   Owner  9876543210 · Teacher Rahul 9000000002 · Parent Neha Sharma 9000000003 · Student portal code CP-STU-DEMO0001 (Aarav Sharma, minor)
+--   Sign up with these emails (and confirm them) to claim the demo roles:
+--   Owner anita@swar.demo · Teacher Rahul rahul@swar.demo · Parent Neha Sharma neha@swar.demo · Student portal code CP-STU-DEMO0001 (Aarav Sharma, minor)
 --   Adult student Ishaan Verma: code CP-STU-DEMO0002
 
 create schema if not exists seedlib;
 
-create function seedlib.fam(p_inst uuid, p_guardian text, p_phone text) returns uuid language plpgsql as $$
+create function seedlib.fam(p_inst uuid, p_guardian text, p_phone text, p_email text default null) returns uuid language plpgsql as $$
 declare v_f uuid;
 begin
   insert into families (institute_id, label) values (p_inst, split_part(p_guardian, ' ', 2) || ' family') returning id into v_f;
-  insert into guardians (institute_id, family_id, name, phone) values (p_inst, v_f, p_guardian, app.norm_phone(p_phone));
+  insert into guardians (institute_id, family_id, name, phone, email) values (p_inst, v_f, p_guardian, app.norm_phone(p_phone), p_email);
   return v_f;
 end $$;
 
@@ -60,9 +61,9 @@ declare
 begin
   insert into institutes (name, category, city_state, phone, gst_configured, gst_registered, gstin, gst_rate, prices_include_gst, filing_frequency, upi_vpa, gateway_enabled, direct_upi_enabled, default_fee, sibling_discount)
   values ('Swar Music Academy', 'Music', 'Hyderabad, Telangana', '9876543210', true, true, '36ABCDE1234F1Z5', 18, true, 'quarterly', 'swarmusic@upi', true, true, 2000, 200) returning id into v_inst;
-  insert into memberships (institute_id, role, display_name, phone, status) values (v_inst, 'owner', 'Anita Sharma', '9876543210', 'invited');
-  insert into memberships (institute_id, role, display_name, phone, status) values (v_inst, 'teacher', 'Rahul Sharma', '9000000002', 'invited') returning id into v_rahul;
-  insert into memberships (institute_id, role, display_name, phone, status) values (v_inst, 'teacher', 'Meera Iyer', '9000000007', 'invited') returning id into v_meera;
+  insert into memberships (institute_id, role, display_name, email, status) values (v_inst, 'owner', 'Anita Sharma', 'anita@swar.demo', 'invited');
+  insert into memberships (institute_id, role, display_name, email, status) values (v_inst, 'teacher', 'Rahul Sharma', 'rahul@swar.demo', 'invited') returning id into v_rahul;
+  insert into memberships (institute_id, role, display_name, email, status) values (v_inst, 'teacher', 'Meera Iyer', 'meera@swar.demo', 'invited') returning id into v_meera;
   insert into targets (institute_id, period_start, amount) values (v_inst, date_trunc('month', t)::date, 120000);
 
   insert into batches (institute_id, name, subject, level, room, teacher_membership_id, capacity, weekly_slots, base_fee, start_on) values
@@ -80,7 +81,7 @@ begin
   update class_sessions set status = 'rescheduled' where batch_id = b_ka and (starts_at at time zone 'Asia/Kolkata')::date = (select min((starts_at at time zone 'Asia/Kolkata')::date) from class_sessions where batch_id = b_ka and starts_at > now());
 
   -- Sharma family: two children, one bill
-  f := seedlib.fam(v_inst, 'Neha Sharma', '9000000003');
+  f := seedlib.fam(v_inst, 'Neha Sharma', '9876500010', 'neha@swar.demo');
   s_aarav := seedlib.student(v_inst, f, 'Aarav Sharma', b_gb, 2000, t - 100);
   s_diya  := seedlib.student(v_inst, f, 'Diya Sharma', b_ka, 2500, t - 100);
   perform seedlib.invoice(v_inst, s_aarav, 2000, 'Tuition – Guitar Beginners', t - 70, t - 69, t - 66, 'cash', 'Cash');            -- August (paid cash)
@@ -110,7 +111,7 @@ begin
   perform seedlib.proof(v_inst, s_kunal, seedlib.invoice(v_inst, s_kunal, 1500, 'Tuition – Guitar Beginners', t - 1, t + 1), 1500, '418709864514', t - 1);
 
   -- adult student who pays their own fees
-  s_ishaan := seedlib.student(v_inst, seedlib.fam(v_inst, 'Ishaan Verma', '9000000004'), 'Ishaan Verma', b_ga, 2000, t - 60, 'active', 'adult');
+  s_ishaan := seedlib.student(v_inst, seedlib.fam(v_inst, 'Ishaan Verma', '9000000004', 'ishaan@swar.demo'), 'Ishaan Verma', b_ga, 2000, t - 60, 'active', 'adult');
   perform seedlib.invoice(v_inst, s_ishaan, 2000, 'Tuition – Guitar Advanced', t - 5, t + 3);
   insert into student_invites (institute_id, student_id, code_hash, expires_at) values
     (v_inst, s_aarav, encode(sha256(convert_to('CP-STU-DEMO0001', 'UTF8')), 'hex'), now() + interval '365 days'),

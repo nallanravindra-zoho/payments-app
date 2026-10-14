@@ -1,97 +1,104 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { rpc } from '../lib/api';
 import { env } from '../lib/env';
-import { digits } from '../lib/format';
 import { homeFor, useApp, type AppContext, type Role } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { Btn, Card, Field, Headline, Illustration, Select, Steps, Support, useGo } from '../components/ui';
 
-const PHONE_KEY = 'cp.loginPhone';
-const asE164 = (p: string) => '+91' + digits(p).slice(-10);
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function Login() {
   const go = useGo();
   const toast = useToast();
   const { session, sel, ready } = useApp();
-  const [phone, setPhone] = useState(sessionStorage.getItem(PHONE_KEY) ?? '');
+  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
 
   useEffect(() => { if (ready && session && sel.role) go(homeFor(sel.role).slice(1), null, true); else if (ready && session) go('role', null, true); }, [ready, session, sel.role]); // eslint-disable-line
 
-  async function sendOtp(p: string) {
-    if (digits(p).length < 10) { toast('Enter a valid 10-digit mobile number'); return false; }
-    setBusy(true);
-    const { error } = await supabase.auth.signInWithOtp({ phone: asE164(p) });
-    setBusy(false);
-    if (error) { toast(error.message); return false; }
-    sessionStorage.setItem(PHONE_KEY, digits(p).slice(-10));
+  function valid() {
+    if (!EMAIL_RE.test(email.trim())) { toast('Enter a valid email address'); return false; }
+    if (password.length < 8) { toast('Use a password of at least 8 characters'); return false; }
     return true;
+  }
+  async function submit() {
+    if (!valid()) return;
+    setBusy(true);
+    try {
+      if (mode === 'in') {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) { toast(/confirm/i.test(error.message) ? 'Please confirm your email first — check your inbox.' : 'Email or password is not correct.'); return; }
+      } else {
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin + '/login' } });
+        if (error) { toast(error.message); return; }
+        if (!data.session) { setSent(email.trim()); return; }       // email confirmation is on: wait for the link
+      }
+    } finally { setBusy(false); }
+  }
+  async function forgot() {
+    if (!EMAIL_RE.test(email.trim())) { toast('Enter your email above first'); return; }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + '/reset' });
+    toast(error ? error.message : 'If that email has an account, a reset link is on its way.');
   }
   async function demoOwner() {
     setBusy(true);
     try {
-      const phoneNo = env.demoOwnerPhone;
-      const a = await supabase.auth.signInWithOtp({ phone: asE164(phoneNo) });
-      if (a.error) throw a.error;
-      const b = await supabase.auth.verifyOtp({ phone: asE164(phoneNo), token: env.demoOtp, type: 'sms' });
-      if (b.error) throw b.error;
-      const ctx = await rpc<AppContext>('my_context');
-      const m = ctx.memberships.find((x) => x.role === 'owner' || x.role === 'admin');
-      if (!m) { toast('The demo academy is not set up in this database'); return; }
-      localStorage.setItem('cp.selection', JSON.stringify({ role: 'admin', instId: m.institute_id, familyId: null, studentId: null }));
-      window.location.assign('/home');
+      const { error } = await supabase.auth.signInWithPassword({ email: env.demoEmail, password: env.demoPassword });
+      if (error) throw error;
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
   }
 
+  if (sent) {
+    return (
+      <>
+        <Illustration>✉️</Illustration>
+        <Headline>Check your email</Headline>
+        <Support>We sent a confirmation link to <b>{sent}</b>. Open it, then come back and sign in.</Support>
+        <Btn cls="block" onClick={() => { setSent(null); setMode('in'); }}>Back to sign in</Btn>
+      </>
+    );
+  }
   return (
     <>
       <Illustration>🎵</Illustration>
       <Headline>Your classes. Your payments. All together.</Headline>
       <Support>Collect fees on time, without endless follow-ups.</Support>
-      <Field label="Mobile number" id="phone" type="tel" value={phone} onChange={setPhone} placeholder="10-digit mobile number" />
-      <Btn cls="block" disabled={busy} onClick={async () => { if (await sendOtp(phone)) go('otp'); }}>Continue with OTP</Btn>
-      {env.demo
-        ? <Support style={{ textAlign: 'center', marginTop: 17 }}>Demo code: <b>{env.demoOtp}</b> · No real SMS is sent</Support>
-        : <Support style={{ textAlign: 'center', marginTop: 17 }}>We’ll text you a one-time code to sign in.</Support>}
+      <Field label="Email" id="email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
+      <Field label="Password" id="password" type="password" value={password} onChange={setPassword} placeholder="At least 8 characters" />
+      <Btn cls="block" disabled={busy} onClick={submit}>{mode === 'in' ? 'Sign in' : 'Create account'}</Btn>
+      <Support style={{ textAlign: 'center', marginTop: 17 }}>
+        {mode === 'in' ? <>New here? <a href="#up" onClick={(e) => { e.preventDefault(); setMode('up'); }}>Create an account</a> · <a href="#forgot" onClick={(e) => { e.preventDefault(); forgot(); }}>Forgot password?</a></>
+          : <>Already registered? <a href="#in" onClick={(e) => { e.preventDefault(); setMode('in'); }}>Sign in</a></>}
+      </Support>
       {env.demo ? <Btn cls="block secondary" disabled={busy} onClick={demoOwner}>Explore owner demo</Btn> : null}
     </>
   );
 }
 
-export function Otp() {
+/** Landing page of the password-reset email link: Supabase signs the user in with a recovery session; they choose a new password. */
+export function ResetPassword() {
   const go = useGo();
-  const nav = useNavigate();
   const toast = useToast();
-  const { refresh } = useApp();
-  const phone = sessionStorage.getItem(PHONE_KEY) ?? '';
-  const [code, setCode] = useState('');
+  const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (!phone) nav('/login', { replace: true }); }, [phone, nav]);
-
-  async function verify() {
-    if (code.trim().length < 4) { toast('Enter the code we sent you'); return; }
+  async function save() {
+    if (pw.length < 8) { toast('Use a password of at least 8 characters'); return; }
     setBusy(true);
-    const { error } = await supabase.auth.verifyOtp({ phone: asE164(phone), token: code.trim(), type: 'sms' });
-    if (error) { setBusy(false); toast('That code is not correct or has expired. Please try again or request a new code.'); return; }
-    await refresh();
+    const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);
-    go('role');
-  }
-  async function resend() {
-    const { error } = await supabase.auth.signInWithOtp({ phone: asE164(phone) });
-    toast(error ? error.message : 'A new code is on its way');
+    if (error) { toast(error.message); return; }
+    toast('Password updated'); go('role', null, true);
   }
   return (
     <>
-      <Steps n={1} total={6} />
-      <Headline>Verify your mobile number</Headline>
-      <Support>{env.demo ? 'Demo OTP sent' : 'OTP sent'} to +91 {phone}.</Support>
-      <Field label="Enter OTP" id="otpinput" value={code} onChange={setCode} placeholder={env.demo ? env.demoOtp : '6-digit code'} />
-      <Btn cls="block" disabled={busy} onClick={verify}>Verify and continue</Btn>
-      <Btn cls="block ghost" onClick={() => nav('/login')}>Back to mobile number</Btn>
-      <Support style={{ textAlign: 'center', marginTop: 12 }}>Didn’t get a code? <a href="#resend" onClick={(e) => { e.preventDefault(); resend(); }}>Resend</a></Support>
+      <Headline>Choose a new password</Headline>
+      <Support>You’re signed in through your reset link. Pick a password you haven’t used elsewhere.</Support>
+      <Field label="New password" id="newpassword" type="password" value={pw} onChange={setPw} placeholder="At least 8 characters" />
+      <Btn cls="block" disabled={busy} onClick={save}>Update password</Btn>
     </>
   );
 }

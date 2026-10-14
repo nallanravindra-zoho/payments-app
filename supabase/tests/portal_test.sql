@@ -72,7 +72,8 @@ begin
   perform tt.throws(format('select public.calendar_range(%L, %L, %L, %L)', v_inst, 'admin', '2026-01-01', '2026-12-31'), 'range_too_large');
   perform tt.throws(format('select public.calendar_range(%L, %L, %L, %L)', v_inst, 'teacher', '2026-10-12', '2026-10-18'), 'forbidden');
   perform tt.su();
-  -- teacher "Rahul" claims by phone and sees only his batch
+  -- teacher "Rahul" claims by VERIFIED EMAIL and sees only his batch
+  update auth.users set email = 'rahul@school.test', email_confirmed_at = now() where id = '00000000-0000-0000-0000-0000000000a2';
   perform tt.login('00000000-0000-0000-0000-0000000000a2', '919000000002');
   perform public.my_context();
   c := public.calendar_range(v_inst, 'teacher', '2026-10-12', '2026-10-18');
@@ -155,5 +156,33 @@ begin
   perform tt.anon();
   perform tt.ok(public.promise_context(null, null, v_tok) ->> 'family_id' is not null, 'guardian promise context via secure link');
   perform tt.ok(public.request_promise(v_tok, null, '2026-10-20') is not null or true, 'guardian can request a payment date');
+  perform tt.su();
+end $$;
+
+-- email sign-in: invited staff / guardians are claimed only by a VERIFIED email
+do $$
+declare v_inst uuid := tt.get('inst')::uuid; v_u1 uuid := gen_random_uuid(); v_u2 uuid := gen_random_uuid(); c jsonb; v_m uuid;
+begin
+  perform tt.su();
+  insert into auth.users (id, email, email_confirmed_at) values (v_u1, 'new.teacher@school.test', null), (v_u2, 'mum@home.test', now());
+  perform tt.login('00000000-0000-0000-0000-0000000000a1', '919876543210');
+  v_m := public.invite_staff(v_inst, 'New Teacher', 'New.Teacher@School.test', 'teacher');
+  perform tt.throws(format('select public.invite_staff(%L, %L, %L, %L)', v_inst, 'Bad', 'not-an-email', 'teacher'), 'invalid_email');
+  perform public.create_batch(v_inst, 'Drums', 'Dev', 'dev@school.test', array[6], '12:00', 60, 8);
+  perform tt.su();
+  update guardians set email = 'mum@home.test', phone = null where name = 'Neha Sharma' or id = (select id from guardians limit 1);
+  -- unverified email cannot claim
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u1, 'role', 'authenticated', 'email', 'new.teacher@school.test')::text, false); execute 'set role authenticated';
+  c := public.my_context();
+  perform tt.ok(jsonb_array_length(c -> 'memberships') = 0, 'an unverified email cannot claim an invited role');
+  perform tt.su();
+  update auth.users set email_confirmed_at = now() where id = v_u1;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u1, 'role', 'authenticated', 'email', 'new.teacher@school.test')::text, false); execute 'set role authenticated';
+  c := public.my_context();
+  perform tt.ok(c -> 'memberships' -> 0 ->> 'role' = 'teacher' and c ->> 'email' = 'new.teacher@school.test', 'a verified email claims the invited teacher role');
+  perform tt.su();
+  perform set_config('request.jwt.claims', json_build_object('sub', v_u2, 'role', 'authenticated', 'email', 'Mum@Home.test')::text, false); execute 'set role authenticated';
+  c := public.my_context();
+  perform tt.ok(jsonb_array_length(c -> 'families') >= 1, 'a verified guardian email links the family (case-insensitive)');
   perform tt.su();
 end $$;

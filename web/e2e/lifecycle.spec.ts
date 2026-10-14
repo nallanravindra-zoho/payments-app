@@ -2,17 +2,21 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 
 /** Full lifecycle against the real PWA build + real SQL (RLS, RPCs) via the local harness. Tests share one seeded database and run in order. */
 test.describe.configure({ mode: 'serial' });
-const OTP = '123456';
+const PW = 'Passw0rd-test1';
 
-async function signIn(page: Page, phone: string) {
+/** Signs in with email + password; registers the account first if it does not exist yet (the harness auto-confirms email). */
+async function signIn(page: Page, email: string) {
   await page.goto('/login');
-  await page.getByLabel('Mobile number').fill(phone);
-  await page.getByRole('button', { name: 'Continue with OTP' }).click();
-  await page.getByLabel('Enter OTP').fill(OTP);
-  await page.getByRole('button', { name: 'Verify and continue' }).click();
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(PW);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  const role = page.getByRole('heading', { name: 'How will you use ClassPay?' });
+  const bad = page.getByRole('status').filter({ hasText: 'not correct' });
+  await Promise.race([role.waitFor(), bad.waitFor()]).catch(() => {});
+  if (await bad.isVisible()) { await page.getByRole('link', { name: 'Create an account' }).click(); await page.getByRole('button', { name: 'Create account' }).click(); }
 }
-async function asRole(page: Page, phone: string, role: RegExp) {
-  await signIn(page, phone);
+async function asRole(page: Page, email: string, role: RegExp) {
+  await signIn(page, email);
   await expect(page.getByRole('heading', { name: 'How will you use ClassPay?' })).toBeVisible();
   await page.getByRole('button', { name: role }).click();
 }
@@ -35,19 +39,21 @@ test('PWA: manifest and service worker are served', async ({ request }) => {
   expect((await request.get('/sw.js')).ok()).toBeTruthy();
 });
 
-test('unauthenticated visitors are sent to login; wrong OTP is rejected', async ({ page }) => {
+test('unauthenticated visitors are sent to login; a wrong password is rejected', async ({ page }) => {
   await page.goto('/home');
   await expect(page).toHaveURL(/\/login$/);
   await heading(page, 'Your classes. Your payments. All together.');
-  await page.getByLabel('Mobile number').fill('9876543210');
-  await page.getByRole('button', { name: 'Continue with OTP' }).click();
-  await page.getByLabel('Enter OTP').fill('000000');
-  await page.getByRole('button', { name: 'Verify and continue' }).click();
+  await page.getByLabel('Email').fill('nobody@nowhere.test');
+  await page.getByLabel('Password').fill('wrong-password-1');
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'not correct' })).toBeVisible();
+  await page.getByLabel('Password').fill('short');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'at least 8 characters' })).toBeVisible();
 });
 
 test('owner signs in and the dashboard reflects the academy', async () => {
-  await asRole(owner, '9876543210', /Academy owner/);
+  await asRole(owner, 'anita@swar.demo', /Academy owner/);
   await expect(owner).toHaveURL(/\/home$/);
   await expect(owner.getByText(/Good (morning|afternoon|evening), Anita/)).toBeVisible();
   await expect(owner.getByText('3 payment proofs to verify')).toBeVisible();
@@ -146,7 +152,7 @@ test('calendar: day, week and month views with batch filter', async () => {
 
 test('new owner: onboarding, CSV import with duplicate handling, batch, enrolment, invoice, invite', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9111111111', /Academy owner/);
+  await asRole(page, 'newowner@test.dev', /Academy owner/);
   await heading(page, 'Tell us about your academy');                       // no academy yet -> create one
   await page.getByLabel('Your name').fill('Test Owner');
   await page.getByLabel('Academy name').fill('Test Academy');
@@ -180,6 +186,7 @@ test('new owner: onboarding, CSV import with duplicate handling, batch, enrolmen
   await page.getByLabel('Student name').fill('Meera Joshi');
   await page.getByLabel('Parent / guardian').fill('Sunil Joshi');
   await page.getByLabel('Guardian mobile').fill('9822200002');
+  await page.getByLabel(/Guardian email/).fill('sunil.joshi@example.com');
   await page.getByRole('button', { name: 'Save student' }).click();
   await heading(page, 'Assign student to a class');
   await expect(page.getByText('Meera Joshi is ready to enrol.')).toBeVisible();
@@ -241,7 +248,7 @@ test('new owner: onboarding, CSV import with duplicate handling, batch, enrolmen
 
 test('parent (signed in) pays the family bill online; replay and double-pay protections hold', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9000000003', /Parent/);
+  await asRole(page, 'neha@swar.demo', /Parent/);
   await expect(page).toHaveURL(/\/parenthome$/);
   await heading(page, 'Family fees');
   await expect(page.locator('.card', { hasText: 'Amount due' })).toContainText('₹4,500');
@@ -268,7 +275,7 @@ test('parent (signed in) pays the family bill online; replay and double-pay prot
 
 test('parent calendar is scoped to their children and can be filtered', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9000000003', /Parent/);
+  await asRole(page, 'neha@swar.demo', /Parent/);
   await nav(page, 'Schedule');
   await heading(page, 'Family schedule');
   await page.getByRole('button', { name: 'Week', exact: true }).click();
@@ -285,7 +292,7 @@ test('parent calendar is scoped to their children and can be filtered', async ({
 
 test('teacher: sees only assigned classes, marks attendance, issues a make-up credit', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9000000002', /Teacher/);
+  await asRole(page, 'rahul@swar.demo', /Teacher/);
   await expect(page).toHaveURL(/\/teacherhome$/);
   await expect(page.getByText('You have 2 sessions today.')).toBeVisible();
   await page.getByRole('button', { name: 'Mark attendance' }).first().click();
@@ -310,7 +317,7 @@ test('teacher: sees only assigned classes, marks attendance, issues a make-up cr
 
 test('minor student: activation, dashboard, no billing, make-up request', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9000000005', /Student/);
+  await asRole(page, 'student1@test.dev', /Student/);
   await heading(page, 'Activate your student account');
   await page.getByLabel('Invitation code').fill('CP-STU-WRONG0000');
   await page.getByRole('button', { name: 'Activate student account' }).click();
@@ -341,7 +348,7 @@ test('minor student: activation, dashboard, no billing, make-up request', async 
 
 test('adult student pays their own invoice only', async ({ browser }) => {
   const { ctx, page } = await fresh(browser);
-  await asRole(page, '9000000006', /Student/);
+  await asRole(page, 'ishaan@swar.demo', /Student/);
   await page.getByLabel('Invitation code').fill('CP-STU-DEMO0002');
   await expect(page.getByLabel('Student account type')).toHaveValue(/18 or older/);
   await page.getByRole('button', { name: 'Activate student account' }).click();

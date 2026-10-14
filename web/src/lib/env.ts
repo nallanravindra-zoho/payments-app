@@ -5,6 +5,6 @@ export const env = {
   demo: import.meta.env.VITE_DEMO_MODE === 'true',
   paymentProvider: ((import.meta.env.VITE_PAYMENT_PROVIDER as string | undefined) ?? 'mock') as 'mock' | 'razorpay',
   razorpayKeyId: (import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined) ?? '',
-  demoOwnerPhone: (import.meta.env.VITE_DEMO_OWNER_PHONE as string | undefined) ?? '9876543210',
-  demoOtp: (import.meta.env.VITE_DEMO_OTP as string | undefined) ?? '123456'
+  demoEmail: (import.meta.env.VITE_DEMO_EMAIL as string | undefined) ?? 'anita@swar.demo',
+  demoPassword: (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) ?? 'demo-password-1'
 };

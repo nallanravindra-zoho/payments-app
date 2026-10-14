@@ -6,7 +6,7 @@ import { initial } from './lib/format';
 
 /** Screen inventory (titles shown in the header) – identical to the approved prototype. */
 export const TITLES: Record<string, string> = {
-  login: 'ClassPay', signup: 'Create your account', otp: 'Verify mobile OTP', role: 'Choose your role', profile: 'Business profile', import: 'Import students', addstudent: 'Add a student',
+  login: 'ClassPay', signup: 'Create your account', otp: 'Verify mobile OTP', reset: 'Reset password', role: 'Choose your role', profile: 'Business profile', import: 'Import students', addstudent: 'Add a student',
   assign: 'Assign student', feeplan: 'Create fee plan', invoice: 'Invoice preview', invite: 'Invite parent', inbox: 'Collections inbox', money: 'Collections inbox', verify: 'Approve payment',
   issue: 'Handle payment issue', allocate: 'Allocate payment', cash: 'Record cash or bank', promise: 'Promise to pay', receipt: 'Payment receipt', feeurl: 'Open fee link', family: 'Family bill',
   methods: 'Payment methods', checkout: 'Parent checkout', upipending: 'UPI payment pending', proof: 'Upload proof', success: 'Payment successful', stillpending: 'Payment still pending',
@@ -24,7 +24,7 @@ const NAVS: Record<Role, [string, string, string][]> = {
   teacher: [['teacherhome', '⌂', 'Home'], ['teachercalendar', '▦', 'Classes'], ['attendance', '☑', 'Attendance']]
 };
 const TOKEN_NAV: [string, string, string][] = [['family', '▦', 'Fees'], ['parenthistory', '▣', 'Payments']];
-const NO_NAV = ['login', 'signup', 'otp', 'role', 'profile', 'import', 'addstudent', 'assign', 'feeplan', 'invoice', 'invite', 'feeurl', 'pay', 'methods', 'checkout', 'upipending', 'proof', 'success', 'stillpending', 'studentactivate'];
+const NO_NAV = ['login', 'signup', 'otp', 'reset', 'role', 'profile', 'import', 'addstudent', 'assign', 'feeplan', 'invoice', 'invite', 'feeurl', 'pay', 'methods', 'checkout', 'upipending', 'proof', 'success', 'stillpending', 'studentactivate'];
 const ALIAS: Record<string, string> = { inbox: 'money', checkout: 'methods', business: 'revenue' };
 
 export function Shell({ children }: { children: ReactNode }) {

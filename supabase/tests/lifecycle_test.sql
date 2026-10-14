@@ -6,7 +6,7 @@ create function tt.put(k text, v text) returns void language sql security define
 create function tt.get(k text) returns text language sql security definer as $$ select v from tt.ctx where tt.ctx.k = $1 $$;
 create function tt.login(p_user uuid, p_phone text) returns void language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated', 'phone', p_phone)::text, false);
+  perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated', 'phone', p_phone, 'email', (select email from auth.users where id = p_user))::text, false);
   execute 'set role authenticated';
 end $$;
 create function tt.bal(f uuid) returns numeric language sql security definer as $$ select coalesce(sum(balance), 0) from app.v_invoice where family_id = f $$;
@@ -63,7 +63,7 @@ do $$
 declare v_inst uuid := tt.get('inst')::uuid; v_b1 uuid; v_b2 uuid; v_prev jsonb; v_res jsonb; v_cnt int;
 begin
   perform tt.login('00000000-0000-0000-0000-0000000000a1', '919876543210');
-  v_b1 := public.create_batch(v_inst, 'Guitar Beginners', 'Rahul', '9000000002', array[1,3], '10:00', 60, 15, 'Studio 1', 2000);
+  v_b1 := public.create_batch(v_inst, 'Guitar Beginners', 'Rahul', 'rahul@school.test', array[1,3], '10:00', 60, 15, 'Studio 1', 2000);
   v_b2 := public.create_batch(v_inst, 'Keyboard A2', 'Meera', null, array[2,4], '16:00', 60, 10, 'Studio 1', 2500);
   perform tt.put('b1', v_b1::text); perform tt.put('b2', v_b2::text);
   perform tt.ok((select count(*) from public.class_sessions where batch_id = v_b1) between 24 and 28, 'sessions generated for 90 days');
