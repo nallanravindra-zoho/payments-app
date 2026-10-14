@@ -1,6 +1,6 @@
 # ClassPay (working name) — Requirements, Market Research & Design
 
-Status: **DRAFT v0.1 for review** — no code yet. Refine this, then implement.
+Status: **DRAFT v0.3 — expanded workflows, 50-screen UI set, and low-cost serverless implementation design**. Sections 1–19 retain the product requirements and historical proposals; sections 20–25 are the current implementation recommendation. A clickable front-end demo exists, but production services are not yet connected.
 
 ---
 
@@ -182,7 +182,7 @@ AuditLog(id, actor, action, entity, before, after, ts)
 
 ---
 
-## 7. Suggested tech stack (proposal — open to change)
+## 7. Original tech stack proposal (historical; superseded by §20)
 - **App:** Flutter *or* React Native — one codebase for Android + iOS. Recommendation: **Flutter** (consistent UI, good offline support).
 - **Backend:** Node.js (NestJS) or Python (FastAPI) + **PostgreSQL**; scheduled jobs for fee generation and reminders.
 - **Auth:** Firebase Auth phone OTP (or MSG91).
@@ -431,3 +431,346 @@ Targets • Receipt template • Data export
 3. Build clickable prototype (optional), then implement in sprints: (1) auth & users, (2) batches & schedule, (3) fees & payments, (4) reminders & receipts, (5) dashboard, targets & GST.
 
 *Sources: [TutorOne](https://www.goodfirms.co/software/tutorone), [CoFee](https://cofee.life/blog/introducing-cofee-the-ultimate-fee-collection-app), [Tufee](https://apps.apple.com/us/app/-/id6740474461), [FeeAlert](https://www.softwaresuggest.com/feealert), [GST guide](https://www.incorpx.io/blog/gst-on-education-coaching-services-india-2026), [Razorpay pricing](https://razorpay.com/blog/razorpay-payment-gateway-pricing-explained/), [gateway comparison](https://www.paritydeals.com/blog/best-payment-gateways-india-2026/).*
+
+
+---
+
+## 13. October 2026 competitor review and updated positioning (NEW — v0.2)
+
+**Research boundary:** the original section 2 reflects the initial draft. The following supplements it with publicly advertised features as checked in October 2026. Vendor claims are **not independent product testing**, and availability/prices require trials. In particular, do **not** market standard reminders, payment links, simple attendance, GST reports or fee tracking as unique.
+
+| Product | Verified publicly advertised capabilities | Product strategy implication |
+|---|---|---|
+| [FeeAlert](https://www.feealert.in/) | WhatsApp-based payment reminders and commands, parent payment links without app install, receipts, UPI, fee ledger, bulk import, expenses and daily briefing | WhatsApp and no-install payment are competitive baseline; win on reliable ledger, reconciliations and exception handling rather than basic automation alone. |
+| [MyClassAdmin](https://www.myclassadmin.com/homepage/) | Fee structures, instalments, discounts, GST and tax reports, online payment, receipts, attendance and parent portal | End-to-end features already exist; differentiate on simplicity and independent teacher workflows. |
+| [Tufee](https://apps.apple.com/in/app/tufee/id6740474461) | The App Store describes a broad institute-management app including fees, attendance, staffing and schedule enhancements | Avoid unfocused ERP expansion; keep a 2-tap collection UX. |
+
+**Refined differentiation hypothesis (requires customer validation):** *The collections-first operating system for independent teachers and skill academies, with predictable billing and human-friendly exception handling.* Four candidate wedges: (1) family-wide balances and single-checkout allocation; (2) proof-to-bank reconciliation with explicit confidence and audit trail; (3) pause, promise, make-up and lesson-credit rules for variable schedules; (4) actionable cash-flow and collection health, not only invoices issued.
+
+**Discovery plan:** interview at least 5 solo tutors, 5 small academies (10–100 pupils) and 3 multi-teacher schools; observe an actual billing month; trial competitors directly; measure time to first payment, collection effort and disputed proof rate. Any “unique” differentiation claim must pass this test before launch.
+
+## 14. Proposed new requirements and priority changes (NEW — v0.2)
+
+P0 = required for trustworthy MVP, P1 = target release after MVP, P2 = later. These recommendations supersede conflicting v0.1 V2 labels **only after product sign-off**.
+
+| ID | Capability | Phase | Detailed acceptance criteria / rationale |
+|---|---|---|---|
+| CP-01 | Excel/CSV import + reversible preview | P0 | Map parent, student, batch, due and opening balance; detect duplicates by phone + name; allow correcting rows; never silently merge unrelated family accounts. |
+| CP-02 | No-install secure parent pay/receipt page | P0 | Time-limited, non-guessable link; show only authorized invoices; browser and low-bandwidth friendly; no parent app mandatory. |
+| CP-03 | Family billing and multi-child dashboard | P0 | Guardian sees charges by child and consolidated due; choose invoice lines and pay once; configurable guardian financial responsibility. |
+| CP-04 | Payment allocation ledger | P0 | Allocate one payment across multiple invoices and one invoice across multiple payments; leftover becomes unapplied credit; never allow allocation above verified available amount. |
+| CP-05 | Payment proof verification + bank confirmation | P0 | Captured UTR, amount, payer, proof, reviewed_by, review_reason; flag duplicates; screenshot **is not evidence of bank settlement**; manual confirmation requires positive bank check. |
+| CP-06 | Payment lifecycle including uncertain status | P0 | States include initiated, pending_provider, paid, failed, expired, pending_manual_review, verified, rejected, partially_allocated, refunded and reversed as distinct payment/invoice concepts. An unknown callback does not imply failure or success. |
+| CP-07 | Promise-to-pay follow-up | P0 | Guardian agrees a future date, reason and optional amount; automated reminders can pause until deadline; missed promise re-enters collections queue; all transitions audited. |
+| CP-08 | Dispute, waiver and notification hold | P0 | Owner marks a disputed balance or valid exception, creates case with reason; suppresses aggressive dunning but preserves principal; resolution logged and communicated. |
+| CP-09 | Immutable financial snapshots and corrections | P0 | Invoice amount, tax basis, discounts and issued receipt never rewritten; amendments use void/credit-note/reversal and a linked audit event; role approvals for sensitive edits. |
+| CP-10 | Configurable payment policy | P0 | Decide whether school accepts cash, direct UPI, gateway; disclose gateway fees before pay; configurable part-payment and family allocation ordering; comply with provider rules. |
+| CP-11 | Import of outstanding balances | P0 | Migrate historic receivables without inventing paid receipts; opening balance marked sourced/imported and distinguishable from freshly issued invoices. |
+| CP-12 | Delivery tracking and quiet hours | P1 | Record reminder channel, accepted/sent/delivered/failed status (where provider exposes); quiet hours, language, frequency cap, opt-outs as legally required. |
+| CP-13 | Class packs, lesson credits and make-up bookings | P1 | Model e.g. 8 lessons valid for 10 weeks; attendance consumes credits only under policy; canceled class generates make-up eligibility without duplicate credits. |
+| CP-14 | Pause/freezes, prorations, renewals | P1 | Effective dated suspension, billing effects, refund and credit policy, restart date and notification history; never silently alter previously issued invoice. |
+| CP-15 | Expense capture, cost allocation, batch profitability | P1 | Costs per teacher/class/venue plus allocation for shared expenses; disclose profitability method; show gross vs net collection. |
+| CP-16 | Bank CSV import and reconciliation rules | P1 | Match UTR, amount, date, payee and gateway payout; unmatched, one-to-many, duplicates and false matches enter queue with audit trail. |
+| CP-17 | Trial, waitlist, enrolment conversion | P1 | Track lead -> trial -> confirmed enrolment; block over-capacity enrolment, support refundable deposits and follow-up tasks. |
+| CP-18 | Student attendance / retention cohorts | P1 | Track active, paused, dropped, renewals by batch and reason; avoid labeling legitimate pauses as churn. |
+| CP-19 | Multilingual parent and accessible mobile view | P1 | Start English + Hindi; test Telugu/Tamil regional support; proper currency formatting, screen-reader labels, large tap targets and status text. |
+| CP-20 | AutoPay with mandates, cancellations and grace handling | P2 | Explicit opt-in and revoke journey; mandate failures generate non-duplicating retries and visible status. Validate provider/bank constraints. |
+| CP-21 | Accountant role, cost centers and multi-branch | P2 | Enforce branch-scoped permission and cross-branch consolidated reporting; audit all finance access. |
+| CP-22 | Predictive collection priority (rules first, AI later) | P2 | Priority suggested by days late, amount, previous promise, failed contact; prohibit opaque automatic sanctions or misleading “likelihood to pay” labels. |
+
+### Scope guardrails
+
+- **P0 does not mean build everything at once.** A release candidate must reliably complete *owner onboarding -> invoice -> parent payment -> confirmed settlement -> correct receipt*, including exceptions and security tests. Split into thin vertical slices.
+- Keep homework, exams, content hosting, chat, video streaming and school ERP procurement out of the initial positioning.
+- WhatsApp templates, messaging costs, bank reconciliation limitations, payment provider terms, child consent and GST/tax treatment must be independently verified before launch.
+
+## 15. Detailed end-to-end journeys and state rules (NEW — v0.2)
+
+### 15.1 Owner first launch
+`Create owner account -> verify OTP -> choose/create institute -> business profile -> choose tax configuration -> import CSV or add family -> create teacher/batch -> configure schedule and fee -> preview invoice -> connect UPI/gateway -> invite guardian -> first paid invoice`.
+
+Required error paths: OTP expiry and rate limit; import malformed/duplicate; teacher conflict; guardian with more than one child; GST not registered; payment provider not connected; failed invite link.
+
+### 15.2 Enrolment and billing
+`Add guardian -> add child -> assign batch -> dates/custom slot -> apply fee plan/discount -> preview tax and proration -> issue invoice -> deliver to responsible payer`.
+
+Fee-generation jobs must be idempotent per invoice period and enrolment; effective-date fee changes must only affect relevant future charges. The draft's original “per batch fixed total split” choice must specify whether member changes automatically recalculate future charges.
+
+### 15.3 Parent gateway payment
+`Secure pay link or parent login -> select child(ren) and invoices -> review amount/fees -> select UPI/card/netbanking -> payment attempt created -> provider redirect -> provider confirmation/webhook validated -> allocate amount -> receipt -> notify parent`.
+
+Do not mark *paid* merely because a browser redirected to success. Verify provider event signature and state; use idempotency keys. If payment remains uncertain, show *Processing — please avoid paying twice* and retry status checks safely.
+
+### 15.4 Direct UPI screenshot payment
+`Parent opens direct UPI -> pays externally -> inputs UTR and proof -> PENDING_MANUAL_REVIEW -> duplicate/amount checks -> admin matches actual bank credit -> approve or reject with reason -> verified payment allocated -> receipt/notification`.
+
+Make it clear in UI that screenshot upload does **not** equal bank confirmation; admin must not approve by screenshot alone. If amounts mismatch, hold and contact payer, retaining all history.
+
+### 15.5 Manual cash/bank payment
+`Owner opens family/invoice -> records amount, method, collector, date -> selects allocation -> confirms -> immutable payment record -> receipt`. Refund or correction must create compensating entries, never erase paid records.
+
+### 15.6 Collections follow-up
+`Invoice due -> reminder eligibility check -> due notification -> overdue queue -> parent promise / dispute / partial payment -> hold or adjusted reminder -> resolve -> paid, write-off or approved correction`. Suppress reminders when a payment is processing or manual proof is pending within a configured period.
+
+### 15.7 Teacher make-up journey (P1)
+`Session canceled -> affected enrolments -> replacement slot / make-up credit -> parent notified -> student books -> attendance marks redemption -> original credit closed`. Define no-show rules, expiry policy and max simultaneous make-ups.
+
+## 16. Data architecture changes for reliable money records (NEW — v0.2)
+
+The original `Payment(fee_due_id)` is insufficient for consolidated family checkout or partially allocated money. Proposed relational additions:
+
+```text
+Institute(id, name, settings_version, timezone, currency)
+Family(id, institute_id, label, billing_contact_user_id)
+FamilyMember(family_id, student_id, relationship, active_from, active_to)
+PayerAuthorization(id, guardian_id, student_id, can_view, can_pay)
+Enrollment(id, student_id, batch_id, start_at, end_at, billing_policy_id)
+Invoice(id, institute_id, student_id, family_id, invoice_number, issued_at,
+        due_at, currency, tax_snapshot, subtotal, discount, tax_total,
+        grand_total, state, source)
+InvoiceLine(id, invoice_id, fee_plan_snapshot, description, service_period,
+            quantity, unit_amount, discount, tax_rate, taxable_amount, total)
+PaymentAttempt(id, payer_id, provider, provider_order_id, idempotency_key,
+               intended_amount, state, initiated_at, last_checked_at)
+Payment(id, institute_id, payer_id, channel, received_amount, verified_amount,
+        currency, reference, bank_match_status, state, received_at)
+PaymentAllocation(id, payment_id, invoice_id, amount, applied_at)
+PaymentProof(id, payment_id, file_url, submitted_by, submitted_at, review_state,
+             reviewed_by, reviewed_at, reviewer_note)
+CreditBalance(id, family_id, currency, available_balance)
+CreditEntry(id, family_id, invoice_id, payment_id, direction, amount, reason)
+InvoiceAdjustment(id, invoice_id, type[credit_note|debit_note|writeoff],
+                  amount, authorized_by, reason, effective_at)
+CollectionCase(id, family_id, invoice_id, type[promise|dispute|hold], state,
+               promise_date, promised_amount, owner_id, reason)
+NotificationDelivery(id, template, invoice_id, channel, status, sent_at)
+BankEntry(id, import_batch_id, date, amount, reference, counterparty, state)
+BankMatch(id, bank_entry_id, payment_id, matched_by, confidence, review_state)
+SessionCredit(id, enrollment_id, origin_session_id, expires_at, state)
+SessionCreditRedemption(id, credit_id, replacement_session_id, redeemed_at)
+Expense(id, institute_id, incurred_at, category, amount, cost_center_id)
+AuditEvent(id, institute_id, actor, entity, entity_id, event_type,
+           before_hash, after_hash, timestamp, request_id)
+```
+
+**Invariants:** (1) `sum(PaymentAllocation.amount)` cannot exceed confirmed available money; (2) no negative or duplicate allocation on replays; (3) invoice historical tax data must not change after issuance; (4) every correction is traceable; (5) guardian cannot access an unrelated child's finances; (6) provider callbacks can arrive more than once or out of order; (7) money rounding uses fixed-precision decimal/paise, never binary floating point.
+
+## 17. Reporting requirements and definitions (NEW — v0.2)
+
+| Report | Priority | Measures / filters | Drill-down, export, caveat |
+|---|---|---|---|
+| Owner revenue cockpit | P0 | Billed, collected, unpaid, overdue, monthly target, previous-month comparison; period, batch, teacher | Split actual receipts from invoice creation; export PDF/CSV |
+| Aging + collections queue | P0 | 1–7 / 8–30 / 31+ day overdue, amount and family, promise/dispute/pending proof tags | Household-level deduplication; contact action; export collector worksheet |
+| Payment and channel reconciliation | P0 basic / P1 bank CSV | Gateway confirmed, direct UPI verified, cash, pending proof, failed/refunded, unmatched | List transaction IDs and bank matches; refund impacts shown separately |
+| Student/family ledger | P0 | Opening balance, invoices, allocated payments, credit notes, remaining balance | Download detailed statement and receipts; child and family views |
+| GST/tax summary | P0 assistive | Taxable amount, configured tax, exemption, CGST/SGST vs IGST breakdown as applicable | Tax jurisdiction/policy needs CA confirmation; don't claim return filed |
+| Collections by batch/teacher | P0 | Amount billed, confirmed collected, overdue, collection ratio | Teachers cannot view unless authorized; compare trends |
+| Cash flow / gateway settlement | P1 | Received, settled into bank, unsettled, refund/chargebacks, provider fees | Provider settlement time distinct from parent successful payment |
+| Batch profit and unit economics | P1 | Gross collections, teacher/room expense, refunds, contribution margin | State if expenses allocated or actual; cash vs accrual basis |
+| Retention and capacity | P1 | Trial conversion, new/active/paused/dropout, renewals, average seats filled | Separate intentional pauses from losses |
+| Reminder effectiveness | P1 | Sent, delivered where available, opted out, paid-after-notice, promise kept | Correlation ≠ causation; prevent harassment through rate caps |
+| Tax/accountant export | P1 | Invoice-level transaction listing and tax categories | Configurable CSV mapping, no filing claims |
+
+### Formula glossary
+- **Billed** = invoices issued in report period (clearly state whether credit-note adjustments are subtracted).
+- **Collected** = verified payment amounts received in report period; report unallocated money separately, and state whether refunds are netted.
+- **Outstanding** = issued invoice total minus applied allocations and approved adjustments as at report cutoff.
+- **Overdue** = outstanding portion of invoices with due date before report cutoff, excluding canceled/voided invoices; display held/disputed amount separately, not erased.
+- **Collection rate** = verified allocations toward selected cohort's billed amount / net billed amount; avoid mixing current month receipts on older invoices unless separately disclosed.
+- **Target progress** = selected-period actual collections / admin-entered target; pace indicators must disclose expected elapsed-day method.
+
+## 18. Expanded image wireframes and screen inventory (NEW — v0.2)
+
+**All wireframes use sample data, not live customer or payment data.** Original 18 mobile PNGs are preserved; **32 new screen PNGs** extend the flows. Assets delivered separately as `ClassPay_Expanded_Flow_Screens.zip` and four `flow_board_*.png` overview boards.
+
+| Screen IDs | Actor | Screens and transitions |
+|---|---|---|
+| 01–05 | Owner | Create account -> verify OTP -> role selection -> business profile -> CSV import |
+| 06–10 | Owner | Create student -> assign batch -> fee plan -> invoice preview -> parent invite |
+| 11–17 | Owner | Collections inbox -> verify direct UPI -> handle mismatch -> allocate family payment -> record cash -> promise to pay -> receipt |
+| 18–24 | Parent | Open link -> family bill -> choose method -> UPI processing -> upload proof -> success -> pending-verification state |
+| 25–30 | Admin | Revenue -> overdue aging -> profitability -> reconciliation -> GST -> retention reports |
+| 31–32 | Teacher/Owner | Attendance -> make-up class credit |
+
+**Navigation recommendations:** owner: Home, Calendar, Students, Money, More. Teacher: Today, Classes, Students, More. Guardian: Home, Classes, Payments, Profile. Payment URL supports streamlined browser checkout separately from full application login.
+
+**Design states still requiring production designs:** empty/new user, loading, network offline, failed OTP, session expired, denied permission, payment canceled, duplicate UTR, provider timed out, reversal, pending refund, wrong child selected, tax exception, accessibility at 200% text size. Do not treat storyboard pictures as production-ready field-by-field screen specs.
+
+## 19. Release slicing, acceptance tests and decisions (NEW — v0.2)
+
+**Slice A — activate owner:** OTP, institute and tax settings, import, batch, enrolment, invoice preview. KPI: time to first valid invoice; CSV import errors resolved.
+
+**Slice B — collect money:** single and family payments, gateway status, direct UPI proof, manual cash, allocation, verified receipt. KPI: reconciliation accuracy, duplicate payment prevention, successful payment rate.
+
+**Slice C — reduce chasing:** aging, promises, disputes, reminder suppression, follow-up tasks, ledger exports. KPI: administrative minutes per 100 invoices, paid-on-time rate and support escalations.
+
+**Slice D — run classes and report:** calendar, timetable conflict checks, GST aids, revenue/aging/reconciliation reports, teacher attendance where activated. KPI: report accuracy against bookkeeper sample and schedule conflicts prevented.
+
+**Release-blocking tests:** duplicate/out-of-order webhook; browser redirect without payment; double-submit on poor connectivity; 2 siblings/3 invoices/1 partial payment; duplicate UTR; refund after allocation; manual bank mismatch; tax edit after invoice issue; guardian invited into wrong institute; restricted teacher attempting finance API; revoked payment link; mixed timezone/date cutoff; offline retry.
+
+**Decisions required before MVP lock:** whether family payments default to oldest-due-first, selected invoices or proportional allocation; whether screenshots require confirmed bank deposit; whether cash can be recorded by teachers; policy for holds/late fees; customer GST registration and invoice form; gateway pricing and fee disclosures; primary WhatsApp/SMS costs and consent; how to handle wallet/advance credits legally and operationally.
+
+### Added sources (checked October 2026)
+- FeeAlert: https://www.feealert.in/ (advertised features; vendor claims not independently tested)
+- MyClassAdmin: https://www.myclassadmin.com/homepage/ and https://www.myclassadmin.com/signin/productFeeManagement
+- Tufee App Store listing: https://apps.apple.com/in/app/tufee/id6740474461
+
+
+---
+
+## 20. Architecture decision: serverless, lowest practical cost (NEW — v0.3)
+
+**Decision:** No permanently running Python/FastAPI or Node/NestJS application server is required for the initial release. Use **Supabase (managed PostgreSQL + Auth + Storage + Row Level Security)** as the backend, **Supabase Edge Functions** for privileged operations/integrations, and **scheduled PostgreSQL jobs / cron** for recurring billing and reminders. Retain the existing HTML clickable prototype as a UX reference, not a production backend.
+
+**Delivery choice:** Build a **responsive Progressive Web App (PWA)** first to minimize cost and enable no-install parent payment links. Prefer **TypeScript + React (or another simple PWA framework)** for a maintainable production frontend. Flutter + Supabase is an alternative **only if native Android/iOS distribution and native mobile capabilities are required at launch**. Do not maintain both PWA and Flutter clients initially. The backend API, relational model and security rules should be client-agnostic so Flutter can be added later without a rewrite.
+
+```text
+Owner / Parent / Teacher
+        |
+        v
+Mobile-first PWA (HTTPS; installable where supported)
+        |       \-- Optional future Flutter clients
+        v
+Supabase Auth + PostgreSQL (RLS) + private Storage
+        |                   |
+        |                   +-- SQL views / RPC / atomic ledger transactions
+        v
+Edge Functions (secrets kept on server side)
+        |          \-- Payment provider checkout creation, webhooks, receipt actions
+        |          \-- Notifications and secure exports
+        v
+External providers when enabled: Razorpay/Cashfree, FCM, SMS/WhatsApp/email
+
+Supabase Cron / scheduled jobs -> Invoice generation -> Aging/reminder queue
+                                   -> Edge Function -> delivery provider
+```
+
+**Why PostgreSQL over Firestore for ClassPay:** parents have multiple students, students have multiple enrollments, a payment can settle multiple invoices, and invoices can receive multiple partial payments. Relational constraints, transactional allocations and SQL reports make PostgreSQL the simpler authoritative financial store. Firebase remains viable, particularly if native offline sync is paramount, but is not the initial recommendation.
+
+### 20.1 Responsibilities by layer
+
+| Layer | Responsibility | Do not do here |
+|---|---|---|
+| PWA / future Flutter client | Login UI, forms, parent bill display, schedule, proof upload via controlled permissions, report rendering, initiate checkout | Decide payment success, store provider secrets, calculate final ledger balance authoritatively |
+| Supabase Auth | Identity sessions; owner/parent/teacher login with invites | Grant institute roles merely from an untrusted client field |
+| PostgreSQL + RLS | Tenant-scoped records, relational constraints, accounting ledger, immutable issued invoice snapshots, views/RPC | Expose unrestricted finance tables to teachers or other tenants |
+| Edge Functions | Signed gateway requests, verified webhooks, admin-authorized payment actions, notification provider calls, secure PDF issuance where required | Trust client-reported paid status |
+| Cron / scheduled jobs | Generate dues once per cycle, check overdue statuses, queue notifications, retry eligible jobs | Depend on a user's phone/app being active |
+| Private Storage | Payment proofs and receipt PDFs with short-lived authorized access | Public unrestricted proof images or ID documents |
+
+### 20.2 Essential business and security invariants
+
+1. Every tenant-facing table has a verifiable institute/tenant identifier, enforced through **RLS policies** and server-side role checks. Design and test access for admin, teacher, parent and student separately.
+2. Client applications use only publishable/anon credentials with RLS. **Never embed Supabase service-role keys or payment gateway secrets in frontend code.**
+3. The gateway webhook endpoint verifies provider signatures and uses event IDs/idempotency keys; only trusted gateway events or authorized back-office verification can confirm funds.
+4. The **Payment**, **PaymentAllocation**, **Invoice** and **LedgerEntry** updates must be atomic with database transactions and unique constraints. Preserve reversed/refunded states and audit logs; never silently overwrite issued documents.
+5. RLS alone is insufficient for all money mutations: expose carefully scoped server RPC/Edge Functions for approval, payment allocation, reversal and receipt issuance.
+6. Store payment proofs privately; restrict access to authorized owners and the submitting family; use signed URLs and retention policies. Minimize data for minors, with guardian consent and deletion/export procedures as applicable.
+7. Test out-of-order webhook delivery, retries, partial family allocations, duplicate UTR, a paid browser-return with no verified webhook, revoked links and mid-cycle fee changes.
+8. Enable database backup/restore procedures, monitoring, rate limits, secret rotation and production incident handling before charging customers.
+
+## 21. Authentication, payments and messaging: cost-aware choices (NEW — v0.3)
+
+**Authentication:** For development, use email/password or approved email magic links with test accounts. For commercial onboarding, preserve admin-created invitations and guardian/student links. OTP through an SMS provider is optional at launch because messages are billable; if introduced, comply with applicable Indian messaging and consent rules. A device PIN/biometric can be a convenience unlock but is not a replacement for backend authentication. Harden invite tokens, expiry, one-time redemption, throttling, device/session revocation, and email deliverability.
+
+**Payments — two supported paths:**
+- **Direct academy UPI QR/VPA:** Parent leaves ClassPay to pay the owner and submits UTR/reference + proof. State becomes `PENDING_VERIFICATION` until the admin verifies it against real collection evidence; a screenshot alone is not proof of settlement. Cash/bank entries also require authorized approval/audit where applicable. This avoids platform gateway integration fees, **not** all underlying banking or merchant charges.
+- **Gateway-managed UPI/cards/net banking:** Create payment orders/links via Edge Function; accept provider callbacks; verify signatures, idempotently record a successful transaction and allocate to invoice(s) before issuing a confirmed receipt. Browser redirect or client callback by itself must not mark paid. Include `PENDING`, `FAILED`, `CANCELLED`, `PARTIALLY_PAID`, `REFUNDED` / `REVERSED` states as appropriate and preserve recheck/retry UX.
+
+**Messaging:** Start with in-app notices, push where feasible and user-initiated share-to-WhatsApp links; add automated SMS/WhatsApp after validation of consent, template approval, delivery fees and local regulations. **No-install parents cannot reliably receive push**; email, direct share and optional paid channels are needed. PWA push behavior varies by browser/OS, especially on iOS, so it is not a sole overdue-notification guarantee.
+
+**Documents:** Invoices should freeze business identity, amounts, fees, discounts and tax settings at issuance; issue PDF receipts only for properly confirmed/recorded payments and support refunds/credit notes with explicit historical links. GST reports are aids for an accountant, not automatic tax filings.
+
+## 22. Free-tier feasibility and cost model (NEW — v0.3)
+
+All figures in this section are **planning assumptions** to be rechecked against current provider pricing and limits before launch. Free tiers and fees can change; no-cost infrastructure does not mean no-cost production operations.
+
+| Service/cost item | Development / pilot plan | Production note |
+|---|---|---|
+| PWA frontend | Free framework; static hosting free tier where available | Custom domain, hosting limits and uptime needs may add costs |
+| Supabase | Start on free tier (historically ~500 MB DB, ~1 GB file storage, ~500k function invocations/month) | Free-tier inactivity pausing, quotas and backup limitations; paid tier likely as usage grows |
+| Database and business logic | PostgreSQL SQL/RPC + Edge Functions, no dedicated server | Monitor query costs, scheduled-job quotas and compute |
+| Auth | Test email/password or magic links | SMS OTP, transactional email volumes or advanced provider features may cost |
+| Push notifications | FCM standard messaging can be no-cost | PWA platform limitations, opt-in/permission and delivery guarantees apply |
+| Direct UPI | No integrated gateway per-transaction fee from ClassPay | Human verification effort and any bank/merchant fees remain |
+| Payment gateway | Sandbox testing generally available | Actual transaction rates, GST on service fees, settlements and disputes are provider-specific |
+| Automated WhatsApp / SMS | Defer or limit pilot usage | Variable per-message/template/provider charges |
+| File storage | Keep proofs compressed with lifecycle cleanup | Photos/PDF bandwidth and retention can outgrow free quotas |
+| App stores | No store fee for PWA-only launch | Native stores require developer accounts and review |
+
+**Rough budget targets (not quotes):** development with mocked checkout and test users can be ₹0/month in platform charges; a small pilot can potentially remain around ₹0–₹500/month **excluding** messaging, transaction fees, domain and developer labor; a more reliable commercial deployment may need **₹2,000–₹5,000+/month**, dependent on usage and chosen paid services. Avoid treating these as promised costs. Set hard budgets and usage alerts before connecting paid providers.
+
+**Caution:** Do not use free hosting without backups/recovery and availability planning for a meaningful financial production workload. Review Supabase project pausing, storage, email/OTP and backup restrictions at go-live.
+
+## 23. Deployment, operations and future portability (NEW — v0.3)
+
+### 23.1 Environments
+
+- **Local:** frontend on developer machine, Supabase local CLI or isolated development project, mocked payments and seeded test data.
+- **Staging:** separate Supabase project, sandbox gateway, signed test webhooks, full user-role tests, seeded family invoices and mocked notifications.
+- **Production:** separate project, HTTPS custom domain, production provider keys stored in function secrets, locked-down CORS, RLS tests, audit logs, health monitoring and supported backup recovery.
+
+### 23.2 Technical choices
+
+- **Frontend:** mobile-first TypeScript PWA, web app manifest, responsive layouts; cache only suitable non-sensitive static assets and clearly label offline/stale data. Do not queue irreversible payment approvals offline without safeguards.
+- **DB:** managed Supabase PostgreSQL with versioned SQL migrations, constraints and indices; create separate tenant-scoped views for analytics.
+- **APIs:** use Supabase client SDK for strictly RLS-protected read and routine writes; use Edge Functions/RPC for privileged financial workflows.
+- **Jobs:** Supabase cron for invoice issue and aging with idempotent `institute + student/enrollment + billing period` keys; an outbox table for retryable notification delivery.
+- **Storage:** private proof/receipt buckets, content-size/type constraints and expiration, no public listing.
+- **Observability:** error capture, payment-event processing log, dead-letter/manual retry queue for failed notifications/webhooks, automated backups and restoration drills.
+- **Exit plan:** Keep the core schema in standard PostgreSQL/SQL migrations; document Edge Function contracts so hosting or mobile clients can change without changing accounting semantics.
+
+### 23.3 When would a dedicated Python backend make sense?
+
+Only add FastAPI/Python (or another dedicated service) if actual needs justify it: CPU-intensive document/OCR processing, sophisticated ML forecasting, highly customized integrations, long-running asynchronous tasks beyond serverless limits or compliance/operations needs. Even then, use an on-demand container/job service before committing to a 24×7 VM. This is **not needed for the initial ClassPay feature scope**.
+
+## 24. Updated build sequence, dependencies and release gates (NEW — v0.3)
+
+| Stage | Deliverable | Must demonstrate |
+|---|---|---|
+| 0. Confirm delivery channel | PWA-first (default) or Flutter-first; freeze role model and payment policies | All essential flows feasible on chosen client, parent no-install link works |
+| 1. Foundations | Supabase Auth, institute membership, RLS, schema migrations, owner onboarding, parent invites | No cross-tenant data visibility; revoked invite cannot be reused |
+| 2. Teaching setup | CSV import, students/families, batches, enrollment, schedule/attendance where selected | Import validation, conflict detection, capacity rules |
+| 3. Billing engine | Fee plans, frozen invoices, sibling combined bills, partial allocations, tax configuration | Multi-invoice atomic allocation, no duplicate billing cycle |
+| 4. Manual collection | QR/VPA, private proofs, UTR checks, verification, cash/bank ledger, receipts | Pending ≠ Paid; audit trail and finance reports agree |
+| 5. Automated collection | Payment gateway sandbox/live, verified webhook, retries, reconciliation | Duplicate/out-of-order events cannot double-credit; no false successes |
+| 6. Reminders and reports | Cron due generation, aging, user-initiated sharing then paid channels, collections/reconciliation/GST reports | Accurate reminders and suppression; totals reconcile to underlying ledger |
+| 7. Production hardening | Backups/restore, privacy, threat model, monitoring, user acceptance tests, pricing | Launch checklist approved and production provider policies verified |
+
+**Design-to-code handoff:** Map the 50-screen prototype inventory (§18) to named routes, role permissions, backend reads/writes, validation states, loading/empty/error states and acceptance tests. Keep the existing clickable HTML demo for usability validation; it is not wired to Supabase yet.
+
+## 25. Explicit decisions to confirm (NEW — v0.3)
+
+1. **PWA-first (recommended for lowest cost)** or **Flutter-first** if downloadable native apps are mandatory at launch?
+2. Default login: email/password or email magic link for pilot? If phone OTP is essential, which SMS provider and budget?
+3. Launch collections: direct UPI with owner verification only, or enable a gateway immediately?
+4. Are WhatsApp/SMS reminders necessary at launch or can the pilot use push + user-initiated share + email?
+5. Pilot size (institutes, students, monthly transactions and screenshots), allowing estimation of storage, delivery and database quotas?
+6. Required recovery targets, backup policy and regulatory/legal review for real payments and minors' data?
+
+**Pricing/provider references to verify at implementation:** https://supabase.com/pricing · https://supabase.com/docs/guides/functions · https://supabase.com/docs/guides/cron · https://firebase.google.com/docs/cloud-messaging · https://razorpay.com/pricing/ · https://www.cashfree.com/payment-gateway-charges/ . These are links for later checking, not a claim that current terms were independently revalidated in this revision.
+
+
+---
+
+## 26. Lifecycle prototype coverage (NEW — prototype v2)
+
+`prototype-v2/index.html` (zipped as `classpay-lifecycle-prototype.zip`) is a single-file clickable front-end built from §14–§19 and the 32 expanded screens (S01–S32). It runs on one in-memory state shared by Owner, Parent and Teacher views, so each action changes what the other roles see. It is **not** connected to Supabase or a payment provider.
+
+| Lifecycle stage | Screens | Behaviour implemented in the prototype |
+|---|---|---|
+| Owner onboarding | S01–S04 | OTP with wrong-code error and 3-attempt lock; multi-institute role pick; GST registered/inclusive/frequency settings with GSTIN validation |
+| Import | S05 | CSV preview, duplicate and invalid-row handling (merge/skip/create), imported opening balances marked `imported`, undo |
+| Enrol and bill | S06–S09 | Existing-family linking by phone, capacity and conflict checks, sibling discount, per-student or split fee, immutable invoice with tax snapshot |
+| Invite | S10 | Secure link reveal, revoke, re-issue; revoked link shows a dead-link page |
+| Parent payment | S18–S24 | Family bill with invoice selection; UPI/card via gateway; direct-UPI proof with duplicate-UTR flag; locks invoices that already have a payment in review |
+| Payment truth | S21 | Browser redirect never marks paid; only a signed webhook does; replayed or late events are ignored; failure and retry state |
+| Owner collections | S11–S16 | Inbox with proofs, processing, overdue, promises, holds; bank-check gate before approval; mismatch handling; allocation with oldest-first / selected-first / proportional; partial allocation leaves family credit; cash/bank entry; promise to pay |
+| Receipts | S17 | Immutable numbered receipts; reversal creates a linked correction and reopens invoices; credit notes on invoices |
+| Automation | Billing & reminders | Time travel; billing cycle is idempotent per enrolment and period; reminder cadence with suppression for promises, pending proofs and holds; missed promises return to the queue |
+| Classes | S31–S32 | Teacher attendance with correction; cancel a class and issue make-up credits once per student; parent redeems a credit |
+| Reports | S25–S30 | Revenue vs target, aging drill-down, batch profitability (cash/accrual, editable costs), reconciliation with exceptions, GST by period with threshold tracker, retention; CSV exports |
+
+**Where the prototype differs from the static screens (intentionally, to keep numbers consistent):** Aarav's first invoice is ₹1,800 after the ₹200 sibling discount, so the family bill totals ₹4,300 rather than ₹4,500; screen values are otherwise reproduced where the data allows (for example the Q2 GST figures ₹3,05,085 / ₹54,915 on ₹3,60,000).
+
+**Defaults chosen where §19/§25 leave a decision open (change after sign-off):** allocation defaults to oldest-due-first; screenshots never confirm settlement (owner must tick a bank-statement check); only the owner records cash; gateway fee pass-through is off by default.
