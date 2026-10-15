@@ -19,8 +19,9 @@ enable_signup = true
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
-# Keep ON in production: invited staff/guardians are linked to their record by VERIFIED email, so unverified addresses must not sign in.
-enable_confirmations = true
+# OFF for now (sign up and use the app immediately). Turn ON before real use: invited staff/guardians are linked to their
+# record by email, and without confirmation anyone could register an invited person's address and take over that role.
+enable_confirmations = false
 minimum_password_length = 8
 
 [storage]

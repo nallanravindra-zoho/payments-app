@@ -43,8 +43,14 @@ The UI is a faithful port (same copy, layout, tokens, navigation). Changes are l
 
 ## Production checklist
 
-1. Supabase project (India region). Auth → Providers → **Email** enabled with **Confirm email ON**; set Site URL and add redirect URLs `<site>/login` and `<site>/reset`; configure custom SMTP before launch (the built-in mailer is rate-limited).
+1. Supabase project (India region). Auth → Providers → **Email** enabled with **Confirm email OFF for now** (turn ON before real use — see the security note below); set Site URL and add redirect URLs `<site>/login` and `<site>/reset`; configure custom SMTP before launch (the built-in mailer is rate-limited).
 2. Secrets: `PAYMENT_PROVIDER=razorpay`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`; deploy functions; set the provider webhook to `/functions/v1/payment-webhook` (events `payment.captured`, `order.paid`, `payment.failed`).
 3. Web env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PAYMENT_PROVIDER=razorpay`, `VITE_RAZORPAY_KEY_ID`; `VITE_DEMO_MODE` unset.
 4. Run migrations (not `seed.sql`). Confirm `pg_cron` created job `classpay-daily` (01:00 IST: billing, sessions, promises, reminders).
 5. Enable backups/PITR, usage alerts, rate limits; rotate keys; never ship the service-role key to the client.
+
+## Security note: email confirmation is off
+
+Passwords are stored by Supabase Auth (salted bcrypt hashes in `auth.users`), never in app tables. With confirmation off, anyone can register any email address. That is fine for
+owners (they create their own academy), but invited **teachers and guardians are linked by email**, so a stranger who guesses an invited address could register it and claim that role.
+Before real use: turn **Confirm email ON** (Authentication → Providers → Email); no code change is needed.
